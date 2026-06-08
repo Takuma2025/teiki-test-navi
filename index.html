@@ -6,6 +6,48 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script>
+function renderTodo(){
+  const list=document.getElementById('s-todo-list');if(!list)return;
+  const sd=getSD(studentName);const gid=sd.groupId;
+  const mats=getCurrentMats().filter(m=>gid?m.groupId===gid:true);
+  const items=mats.map(m=>{
+    const lv=getGauge(sd,m.id);
+    const pred=Math.round(predScore(m.points,lv));
+    const gap=m.points-pred;
+    return{name:m.name,subject:m.subject,points:m.points,pred,gap,lv};
+  }).filter(x=>x.gap>0).sort((a,b)=>b.gap-a.gap).slice(0,5);
+  if(!items.length){list.innerHTML='<div style="padding:8px 0;font-size:13px;color:var(--sub);text-align:center;">すべて順調です！</div>';return;}
+  list.innerHTML='';
+  items.forEach((it,i)=>{
+    const item=document.createElement('div');item.className='s-todo-item';
+    item.innerHTML=`<div class="s-todo-rank">${i+1}</div><div class="s-todo-info"><div class="s-todo-name">${esc(it.subject)}：${esc(it.name)}</div><div class="s-todo-detail">現状${it.pred}点 / 配点${it.points}点</div></div><div class="s-todo-gap"><div class="s-todo-gap-lbl">伸びしろ</div><div class="s-todo-gap-num">${it.gap}点</div></div>`;
+    list.appendChild(item);
+  });
+}
+
+function getIWork(sd,subj){
+  const tid=getTD().currentTestId;
+  if(!sd.byTest||!sd.byTest[tid]||!sd.byTest[tid].iwork)return false;
+  return!!sd.byTest[tid].iwork[subj];
+}
+function getIWorkByMat(sd,mid){
+  const m=getCurrentMats().find(x=>x.id===mid);
+  return m?getIWork(sd,m.subject):false;
+}
+function setIWork(name,subj,val){
+  const sd=getSD(name);const tid=getTD().currentTestId;
+  if(!sd.byTest)sd.byTest={};
+  if(!sd.byTest[tid])sd.byTest[tid]={gauge:{},target:null,lastUpdated:null};
+  if(!sd.byTest[tid].iwork)sd.byTest[tid].iwork={};
+  sd.byTest[tid].iwork[subj]=val;
+  sd.byTest[tid].lastUpdated=new Date().toISOString();
+  sd.lastUpdated=sd.byTest[tid].lastUpdated;
+  saveSD(name,sd);
+}
+function predScoreWithBonus(pts,lv){
+  return predScore(pts,lv);
+}
+
 let _weakPhotoData=null;
 function compressImage(file,maxW,quality){
   return new Promise((resolve)=>{
@@ -35,11 +77,23 @@ function renderWeakPoints(){
   list.innerHTML='';
   wp.forEach((entry,i)=>{
     const isObj=typeof entry==='object';
-    const txt=isObj?entry.text:entry;
+    const txt=isObj?(entry.text||''):(entry||'');
     const img=isObj?entry.image:null;
-    const item=document.createElement('div');item.className='s-weak-item';item.style.flexDirection='column';item.style.alignItems='flex-start';
-    item.innerHTML=`<div style="display:flex;align-items:center;gap:8px;width:100%;"><span class="s-weak-item-text">${esc(txt||'')}</span><button class="s-weak-item-del" data-idx="${i}">×</button></div>${img?`<img class="s-weak-item-img" src="${img}">`:''}`;
+    const chk=isObj?!!entry.checked:false;
+    const item=document.createElement('div');item.className='s-weak-item';
+    item.innerHTML=`<input type="checkbox" class="s-weak-check" data-idx="${i}"${chk?' checked':''}><div style="flex:1;min-width:0;"><span class="s-weak-item-text${chk?' checked':''}">${esc(txt)}</span>${img?`<img class="s-weak-item-img" src="${img}">`:''}${isObj&&entry.addedAt?`<div style="font-size:10px;color:var(--sub);margin-top:2px;">${timeAgo(entry.addedAt)}</div>`:''}</div><button class="s-weak-item-del" data-idx="${i}">×</button>`;
     list.appendChild(item);
+  });
+  list.querySelectorAll('.s-weak-check').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const idx=parseInt(cb.dataset.idx);
+      const sd2=getSD(studentName);const tid2=getTD().currentTestId;
+      const wp2=sd2.byTest[tid2].weakPoints;
+      if(typeof wp2[idx]==='string')wp2[idx]={text:wp2[idx],checked:cb.checked};
+      else wp2[idx].checked=cb.checked;
+      saveSD(studentName,sd2);
+      renderWeakPoints();
+    });
   });
   list.querySelectorAll('.s-weak-item-del').forEach(btn=>{
     btn.addEventListener('click',()=>{
@@ -61,7 +115,7 @@ function addWeakPoint(){
   if(!sd.byTest)sd.byTest={};
   if(!sd.byTest[tid])sd.byTest[tid]={gauge:{},target:null,lastUpdated:null};
   if(!sd.byTest[tid].weakPoints)sd.byTest[tid].weakPoints=[];
-  const entry=_weakPhotoData?{text:txt,image:_weakPhotoData}:txt;
+  const entry=_weakPhotoData?{text:txt,image:_weakPhotoData,addedAt:new Date().toISOString(),checked:false}:{text:txt,addedAt:new Date().toISOString(),checked:false};
   sd.byTest[tid].weakPoints.push(entry);
   sd.byTest[tid].lastUpdated=new Date().toISOString();
   sd.lastUpdated=sd.byTest[tid].lastUpdated;
@@ -508,7 +562,7 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .empty-msg{padding:32px 16px;text-align:center;color:#b0bac8;font-size:13px;}
 .empty-msg b{display:block;font-size:15px;font-weight:500;color:var(--sub);margin-bottom:6px;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.t-mini-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;font-size:12px;font-weight:500;color:var(--sub);background:var(--bg2);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;white-space:nowrap;}
+.t-mini-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;font-size:12px;font-weight:500;color:var(--sub);background:var(--bg2);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;white-space:nowrap;flex-shrink:0;}
 .t-mini-btn:hover{background:var(--blue-lt);color:var(--blue);border-color:var(--blue-pale);}
 .dash-section{background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;}
 .s-rank-wrap{background:rgba(255,255,255,.1);border-radius:10px;padding:8px 14px;text-align:center;}
@@ -564,24 +618,59 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .t-test-del-btn{background:none;border:1px solid #fca5a5;color:#dc2626;font-size:11px;font-weight:500;padding:4px 10px;border-radius:16px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
 .t-test-del-btn:hover{background:#fef2f2;}
 .s-weak-section{margin-top:4px;}
-.s-weak-body{background:#fff;padding:12px 16px;}
-.s-weak-input-row{display:flex;gap:8px;margin-top:8px;}
-.s-weak-input{flex:1;font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;transition:.15s;}
+.s-weak-body{background:#fff;padding:12px 16px;overflow:hidden;}
+.s-weak-input-row{display:flex;gap:6px;margin-top:8px;width:100%;box-sizing:border-box;}
+.s-weak-input{flex:1;min-width:0;font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;outline:none;transition:.15s;box-sizing:border-box;}
 .s-weak-input:focus{border-color:var(--blue);}
 .s-weak-input::placeholder{color:#cbd5e1;}
-.s-weak-add-btn{background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;flex-shrink:0;}
-.s-weak-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.s-weak-add-btn{background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;flex-shrink:0;}
+.s-weak-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
 .s-weak-item:last-child{border-bottom:none;}
 .s-weak-item-text{flex:1;font-size:13px;color:var(--text);}
+.s-weak-item-text.checked{text-decoration:line-through;color:var(--sub);}
+.s-weak-check{width:18px;height:18px;border:1.5px solid var(--border);border-radius:4px;cursor:pointer;flex-shrink:0;margin-top:1px;-webkit-appearance:none;appearance:none;background:#fff;transition:.15s;}
+.s-weak-check:checked{background:var(--blue);border-color:var(--blue);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' fill='%23fff'/%3E%3C/svg%3E");background-size:14px;background-repeat:no-repeat;background-position:center;}
 .s-weak-item-del{background:none;border:none;cursor:pointer;color:#d1d5db;padding:4px;transition:.15s;font-size:16px;}
 .s-weak-item-del:hover{color:#ef4444;}
-.s-weak-photo-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:var(--bg2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex-shrink:0;transition:.15s;}
+.s-weak-photo-btn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--bg2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex-shrink:0;transition:.15s;}
 .s-weak-photo-btn:hover{border-color:var(--blue);background:var(--blue-lt);}
 .s-weak-photo-btn svg{width:18px;height:18px;fill:var(--sub);}
 .s-weak-preview{position:relative;margin-bottom:8px;display:inline-block;}
 .s-weak-preview img{max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);}
 .s-weak-preview-del{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
 .s-weak-item-img{max-width:100%;max-height:180px;border-radius:6px;margin-top:6px;border:1px solid var(--border);}
+
+.iwork-row{padding:10px 14px;border-top:1px solid var(--border);background:#fafafa;}
+.iwork-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:2px solid var(--border);border-radius:10px;background:#fff;transition:.2s;font-size:0;user-select:none;-webkit-user-select:none;}
+.iwork-toggle:active{transform:scale(.98);}
+.iwork-toggle.on{background:#eff6ff;border-color:#60a5fa;}
+.iwork-cb{display:none;}
+.iwork-sw{width:40px;height:22px;border-radius:11px;background:#d1d5db;position:relative;transition:.2s;flex-shrink:0;}
+.iwork-sw::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.iwork-toggle.on .iwork-sw{background:#3b82f6;}
+.iwork-toggle.on .iwork-sw::after{left:20px;}
+.iwork-label{font-size:13px;font-weight:600;color:var(--sub);line-height:1.3;}
+.iwork-toggle.on .iwork-label{color:#3b82f6;}
+.iwork-pts{font-size:12px;font-weight:700;color:var(--sub);margin-left:auto;flex-shrink:0;transition:.2s;}
+.iwork-toggle.on .iwork-pts{color:#3b82f6;}
+.s-todo-card{margin:12px 12px 0;border-radius:14px;overflow:hidden;background:#fff;border:2px solid var(--blue);box-shadow:0 2px 10px rgba(0,92,172,.1);}
+.s-todo-btn{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:#fff;border:none;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-align:left;transition:.15s;}
+.s-todo-btn:active{background:var(--bg2);}
+.s-todo-btn-text{flex:1;}
+.s-todo-btn-title{display:block;font-size:14px;font-weight:700;color:var(--text);}
+.s-todo-btn-sub{display:block;font-size:11px;color:var(--sub);margin-top:2px;}
+.s-todo-btn-arrow{font-size:12px;color:var(--blue);transition:transform .2s;flex-shrink:0;}
+.s-todo-btn-arrow.open{transform:rotate(90deg);}
+.s-todo-body{padding:4px 16px 14px;}
+.s-todo-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.s-todo-item:last-child{border-bottom:none;}
+.s-todo-rank{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;color:var(--blue);flex-shrink:0;width:22px;text-align:center;}
+.s-todo-info{flex:1;min-width:0;}
+.s-todo-name{font-size:13px;font-weight:600;color:var(--text);}
+.s-todo-detail{font-size:11px;color:var(--sub);margin-top:2px;font-family:'Roboto Mono',monospace;}
+.s-todo-gap{flex-shrink:0;text-align:right;}
+.s-todo-gap-lbl{font-size:9px;color:var(--blue);font-weight:600;letter-spacing:.05em;}
+.s-todo-gap-num{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;color:var(--blue);}
 /* ── RESPONSIVE (タブレット・PC対応) ── */
 html{background:var(--bg2);}
 
@@ -717,7 +806,7 @@ html{background:var(--bg2);}
   <div class="page-wrap">
     <!-- HOME -->
     <div id="t-home">
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);background:#fff;">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);background:#fff;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;scrollbar-width:none;-ms-overflow-style:none;">
         <button class="t-mini-btn" id="t-nav-class-reg">
           <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;flex-shrink:0"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>
           クラス登録
@@ -909,6 +998,17 @@ html{background:var(--bg2);}
 
     </div>
     <div class="cal-card" id="s-cal-card" style="display:none"></div>
+    <div class="s-todo-card" id="s-todo-card">
+      <button class="s-todo-btn" id="s-todo-btn">
+        <span class="s-todo-btn-text">
+          <span class="s-todo-btn-title">伸びしろの大きい範囲を確認</span>
+        </span>
+        <span class="s-todo-btn-arrow" id="s-todo-arrow">▶</span>
+      </button>
+      <div class="s-todo-body" id="s-todo-body" style="display:none;">
+        <div id="s-todo-list"></div>
+      </div>
+    </div>
     <div class="s-section-title-wrap">
       <div class="s-section-title">完成度チェック</div>
       <div class="s-section-sub">テスト範囲表の内容を、1つずつ仕上げていこう。各項目が今どのレベルまでできているかを記録しましょう。</div>
@@ -916,8 +1016,8 @@ html{background:var(--bg2);}
     <div id="s-cards"></div>
     <div class="s-weak-section" id="s-weak-section">
       <div class="s-section-title-wrap">
-        <div class="s-section-title">苦手・わからない問題</div>
-        <div class="s-section-sub">今回特に苦手な単元やわからない問題を記録しておこう。</div>
+        <div class="s-section-title">苦手・わからない単元・問題</div>
+        <div class="s-section-sub">苦手な単元やわからない問題を記録しよう。</div>
       </div>
       <div class="s-weak-body">
         <div id="s-weak-list"></div>
@@ -1091,6 +1191,14 @@ document.getElementById('cr-add-btn').addEventListener('click',addClassFromCR);
 
 document.getElementById('sr-add').addEventListener('click',addStudent);
 document.getElementById('t-logout').addEventListener('click',logout);
+document.getElementById('s-todo-btn').addEventListener('click',function(){
+  const body=document.getElementById('s-todo-body');
+  const arrow=document.getElementById('s-todo-arrow');
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  arrow.classList.toggle('open',!isOpen);
+  if(!isOpen)renderTodo();
+});
 document.getElementById('s-weak-add').addEventListener('click',addWeakPoint);
 document.getElementById('s-weak-file').addEventListener('change',async function(){
   if(!this.files||!this.files[0])return;
@@ -1249,7 +1357,7 @@ function getStudentSubjScores(sd){
     const allSel=mats.length>0&&mats.every(m=>getGauge(sd,m.id)!==null);
     mats.forEach(m=>{mx+=m.points;tot+=predScore(m.points,getGauge(sd,m.id));});
     if(mats.length>0&&!allSel)allSelAll=false;
-    out[subj]={score:Math.round(tot),max:mx,allSel,hasMats:mats.length>0};
+    const subjIw=getIWork(sd,subj);out[subj]={score:Math.round(tot)+(subjIw&&mats.length>0?3:0),max:mx,allSel,hasMats:mats.length>0};
     grandTotal+=tot;grandMax+=mx;
   });
   const allMats=getCurrentMats().filter(m=>gid?m.groupId===gid:true);
@@ -1271,7 +1379,7 @@ function renderDashList(){
   keys.forEach(key=>{
     const names=grouped[key]||[];names.sort((a,b)=>a.localeCompare(b,'ja'));
     const section=document.createElement('div');section.className='dash-section';
-    if(key!=='none'){
+    if(key!=='none'&&tStudentFilter!==null){
       const g=groups.find(g=>g.id===key);
       if(g){
         const gradeMap={'中1':'中1','中2':'中2','中3':'中3'};
@@ -1288,6 +1396,8 @@ function renderDashList(){
       const tid=td.currentTestId;
       const lastU=sd.byTest&&sd.byTest[tid]?sd.byTest[tid].lastUpdated:sd.lastUpdated;
       const ago=timeAgo(lastU);
+      const wpCount=(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].weakPoints)||[];
+      const wpNew=wpCount.filter(w=>typeof w==='object'&&!w.checked).length;
       const isFresh=lastU&&(Date.now()-new Date(lastU).getTime())<86400000;
       const totalColor=scores.allSel?scoreColor(scores.max?scores.total/scores.max*100:0,true):'#9ca3af';
       const row=document.createElement('div');row.className='dash-tr dash-trow';
@@ -1298,7 +1408,7 @@ function renderDashList(){
         const col=sv.allSel?scoreColor(sv.max?sv.score/sv.max*100:0,true):'#9ca3af';
         return`<div class="dash-td-subj"><span class="dash-subj-val" style="background:${col}">${sv.allSel?sv.score:'?'}</span></div>`;
       }).join('');
-      row.innerHTML=`<div class="dash-td-name"><span class="dash-name">${esc((findStudentById(name)||{}).name||name)}</span></div><div class="dash-td-total"><span class="dash-total-val" style="color:${totalColor}">${scores.allSel?scores.total:'--'}</span><span class="dash-total-max"> /500</span></div>${subjCells}<div class="dash-td-time"><span class="dash-time${isFresh?' fresh':''}">${ago}</span></div>`;
+      row.innerHTML=`<div class="dash-td-name"><span class="dash-name">${esc((findStudentById(name)||{}).name||name)}</span></div><div class="dash-td-total"><span class="dash-total-val" style="color:${totalColor}">${scores.allSel?scores.total:'--'}</span><span class="dash-total-max"> /500</span></div>${subjCells}<div class="dash-td-time"><span class="dash-time${isFresh?' fresh':''}">${ago}</span>${wpNew?`<span style="background:#dc2626;color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;margin-left:4px;">苦手${wpNew}</span>`:''}</div>`;
       row.addEventListener('click',()=>enterStudentDetail(name));
       tbl.appendChild(row);
     });
@@ -1559,7 +1669,7 @@ function renderStudentList(){
     }
     names.forEach(name=>{
       const sd=getSD(name);const gid=sd.groupId;
-      let max=0,total=0;getCurrentMats().filter(m=>gid?m.groupId===gid:true).forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});
+      let max=0,total=0;const _ms=getCurrentMats().filter(m=>gid?m.groupId===gid:true);let _iwe=0;SUBJECTS.forEach(subj=>{if(getIWork(sd,subj)&&_ms.some(m=>m.subject===subj))_iwe+=3;});_ms.forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});
       const g=gid?(td.groups||[]).find(g=>g.id===gid):null;
       const wrap=document.createElement('div');wrap.className='stu-row-t';
       const sum=document.createElement('div');sum.className='stu-sum';
@@ -1591,6 +1701,8 @@ function renderStudentDetailScreen(name){
   let maxT=0,totalT=0;
   const allMatsT=getCurrentMats().filter(m=>gid?m.groupId===gid:true);
   allMatsT.forEach(m=>{maxT+=m.points;totalT+=predScore(m.points,getGauge(sd,m.id));});
+  // iWorkボーナス: 教科ごとに+3（1回のみ）
+  SUBJECTS.forEach(subj=>{if(getIWork(sd,subj)&&getCurrentMats().some(m=>m.subject===subj&&(gid?m.groupId===gid:true)))totalT+=3;});
   const allSelectedT=allMatsT.every(m=>getGauge(sd,m.id)!==null);
   const ago=timeAgo(sd.lastUpdated);
   const isFresh=sd.lastUpdated&&(Date.now()-new Date(sd.lastUpdated).getTime())<86400000;
@@ -1628,7 +1740,7 @@ function renderStudentDetailScreen(name){
         <span class="stu-detail-subj-score">${Math.round(sp)} / ${sm}</span>
       </div>`;
     mats.forEach((m,i)=>{
-      const lv=getGauge(sd,m.id);const p=Math.round(predScore(m.points,lv));
+      const lv=getGauge(sd,m.id);const p=Math.round(predScoreWithBonus(m.points,lv,getIWorkByMat(sd,m.id)));
       const lvSt=levelStyle(lv);
       const opts='<option value=""'+(lv===null?' selected':'')+'>学習状況を選択</option>'+PRESETS.map(pr=>`<option value="${pr.v}"${pr.v===lv?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
       html+=`<div class="stu-detail-mat t-detail-mat-row" data-mid="${m.id}" data-pts="${m.points}">
@@ -1643,6 +1755,23 @@ function renderStudentDetailScreen(name){
     html+='</div>';
   });
   el.innerHTML=html;
+  // 苦手単元セクション（下部に表示）
+  const tid=td.currentTestId;
+  const wpData=(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].weakPoints)||[];
+  if(wpData.length){
+    const wpDiv=document.createElement('div');wpDiv.style.cssText='margin-top:16px;padding:0 4px;';
+    let wpHtml='<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:4px;height:16px;background:var(--blue);border-radius:2px;"></span>苦手・わからない単元・問題<span style="background:#dc2626;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;">'+wpData.length+'件</span></div>';
+    wpData.forEach((entry,i)=>{
+      const isObj=typeof entry==='object';
+      const txt=isObj?(entry.text||''):(entry||'');
+      const img=isObj?entry.image:null;
+      const chk=isObj?!!entry.checked:false;
+      const ago=isObj&&entry.addedAt?timeAgo(entry.addedAt):'';
+      wpHtml+='<div style="padding:10px 12px;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;'+(chk?'opacity:.6;':'')+'"><div style="display:flex;align-items:center;gap:6px;font-size:13px;color:'+(chk?'var(--sub)':'var(--text)')+';'+(chk?'text-decoration:line-through;':'')+'"><span>'+(chk?'☑':'☐')+'</span> '+esc(txt)+'</div>'+(img?'<img src="'+img+'" style="max-width:100%;max-height:150px;border-radius:6px;margin-top:6px;">':'')+(ago?'<div style="font-size:10px;color:var(--sub);margin-top:3px;">'+ago+'</div>':'')+'</div>';
+    });
+    wpDiv.innerHTML=wpHtml;
+    el.appendChild(wpDiv);
+  }
   el.querySelectorAll('.stu-detail-mat-sel').forEach(sel=>{
     sel.addEventListener('change',function(){
       const mid=parseInt(this.dataset.mid);const pts=parseInt(this.dataset.pts);
@@ -1659,7 +1788,7 @@ function renderStudentDetailScreen(name){
     });
   });
 }
-function buildStuDetail(name){const td=getTD(),sd=getSD(name);const gid=sd.groupId;const ss=SUBJECTS.filter(s=>getCurrentMats().some(m=>m.subject===s&&(gid?m.groupId===gid:true)));if(!ss.length)return'<div class="empty-msg" style="padding:14px">範囲が未登録です</div>';return ss.map(subj=>{const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:true));let sm=0,sp=0;mats.forEach(m=>{sm+=m.points;sp+=predScore(m.points,getGauge(sd,m.id));});const pct=sm?sp/sm*100:0;const items=mats.map(m=>{const lv=getGauge(sd,m.id);const p=Math.round(predScore(m.points,lv));return`<div class="stu-mi"><span class="stu-mn">${esc(m.name)}</span><span class="${lv<=10?'stu-ml zero':'stu-ml'}">${levelLabel(lv)}</span><span class="stu-mp">${p}/${m.points}点</span></div>`;}).join('');return`<div class="stu-sb"><div class="stu-sh"><span class="stu-snm">${subj}</span><div class="stu-sbar"><div class="stu-sbar-f" style="width:${pct}%"></div></div><span class="stu-ssc">${Math.round(sp)} / ${sm}</span></div>${items}</div>`;}).join('');}
+function buildStuDetail(name){const td=getTD(),sd=getSD(name);const gid=sd.groupId;const ss=SUBJECTS.filter(s=>getCurrentMats().some(m=>m.subject===s&&(gid?m.groupId===gid:true)));if(!ss.length)return'<div class="empty-msg" style="padding:14px">範囲が未登録です</div>';return ss.map(subj=>{const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:true));let sm=0,sp=0;mats.forEach(m=>{sm+=m.points;sp+=predScore(m.points,getGauge(sd,m.id));});const pct=sm?sp/sm*100:0;const items=mats.map(m=>{const lv=getGauge(sd,m.id);const p=Math.round(predScoreWithBonus(m.points,lv,getIWorkByMat(sd,m.id)));return`<div class="stu-mi"><span class="stu-mn">${esc(m.name)}</span><span class="${lv<=10?'stu-ml zero':'stu-ml'}">${levelLabel(lv)}</span><span class="stu-mp">${p}/${m.points}点</span></div>`;}).join('');return`<div class="stu-sb"><div class="stu-sh"><span class="stu-snm">${subj}</span><div class="stu-sbar"><div class="stu-sbar-f" style="width:${pct}%"></div></div><span class="stu-ssc">${Math.round(sp)} / ${sm}</span></div>${items}</div>`;}).join('');}
 
 function showGoalSetup(){
   document.getElementById('goal-setup').className='screen on';
@@ -1688,7 +1817,7 @@ function confirmGoal(){
 }
 function showStudent(){document.getElementById('student').className='screen on';document.getElementById('teacher').className='screen';const td=getTD(),sd=getSD(studentName);const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);document.getElementById('s-name-hd').textContent=(g?g.label+' ':'')+studentName+'さん';const stuObj=findStudentById(studentName);const dispName=stuObj?stuObj.name:studentName;document.getElementById('s-name-hd').textContent=(g?gLabel(g)+' / ':'')+dispName+'さん';sOpenSubj=null;renderCountdown();renderSCards();sRecalcBanner();initTargetUI();renderWeakPoints();}
 function getMats(subj,sd){const td=getTD();const gid=sd.groupId;return getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:!m.groupId));}
-function sSubjStats(subj){const sd=getSD(studentName);const mats=getMats(subj,sd);let max=0,total=0;mats.forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});const sp=subjectSpread(mats,sd);return{max,total,mats,count:mats.length,low:Math.max(0,Math.round(total-sp)),high:Math.min(max,Math.round(total+sp))};}
+function sSubjStats(subj){const sd=getSD(studentName);const mats=getMats(subj,sd);let max=0,total=0;mats.forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});if(getIWork(sd,subj)&&mats.length>0)total+=3;const sp=subjectSpread(mats,sd);return{max,total,mats,count:mats.length,low:Math.max(0,Math.round(total-sp)),high:Math.min(max,Math.round(total+sp))};}
 function updateSCardHeader(subj){
   const sd=getSD(studentName);const st=sSubjStats(subj);
   const pct=st.max?st.total/st.max*100:0;
@@ -1717,11 +1846,12 @@ function buildMatBody(subj,body){
   const sd=getSD(studentName);const mats=getMats(subj,sd);
   if(!mats.length){body.innerHTML='<div class="empty-msg" style="padding:18px">この教科の範囲は未登録です</div>';return;}
   mats.forEach((m,idx)=>{
-    const lv=getGauge(sd,m.id);const p=Math.round(predScore(m.points,lv));
+    const lv=getGauge(sd,m.id);const p=Math.round(predScoreWithBonus(m.points,lv,getIWorkByMat(sd,m.id)));
     const row=document.createElement('div');row.className='mat-item';
     const opts='<option value=""'+(lv===null?' selected':'')+'>学習状況を選択</option>'+PRESETS.map(pr=>`<option value="${pr.v}"${pr.v===lv?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
     const lvSt=levelStyle(lv);
-    row.innerHTML=`<div class="mat-item-info"><div class="mat-item-name"><span class="mat-lbl">範囲${idx+1}</span> ${esc(m.name)}</div><div class="mat-item-sel"><select class="mat-sel" id="sel-${m.id}" style="background-color:${lvSt.bg};color:${lvSt.color};border-color:${lvSt.bd};font-weight:600;">${opts}</select></div></div><div class="mat-item-right"><div class="mat-pred" id="mp-${m.id}">${p}点</div><div class="mat-alloc">配点 ${m.points}</div></div>`;
+    const pBonus=Math.round(predScore(m.points,lv));
+    row.innerHTML=`<div class="mat-item-info"><div class="mat-item-name"><span class="mat-lbl">範囲${idx+1}</span> ${esc(m.name)}</div><div class="mat-item-sel"><select class="mat-sel" id="sel-${m.id}" style="background-color:${lvSt.bg};color:${lvSt.color};border-color:${lvSt.bd};font-weight:600;">${opts}</select></div></div><div class="mat-item-right"><div class="mat-pred" id="mp-${m.id}">${pBonus}点</div><div class="mat-alloc">配点 ${m.points}</div></div>`;
     body.appendChild(row);
     row.querySelector('#sel-'+m.id).addEventListener('change',function(){
       const nlv=this.value?parseInt(this.value):null;
@@ -1734,6 +1864,18 @@ function buildMatBody(subj,body){
       this.style.backgroundColor=ns.bg;this.style.color=nlv?ns.color:'#94a3b8';this.style.borderColor=ns.bd;this.style.fontWeight=nlv?'600':'400';
       updateSCardHeader(subj);sRecalcBanner();
     });
+  });
+  // 教科ごとのiWorkトグル
+  const iwSubj=getIWork(sd,subj);
+  const iwRow=document.createElement('div');iwRow.className='iwork-row';
+  iwRow.innerHTML=`<label class="iwork-toggle${iwSubj?' on':''}" id="iw-subj-${subj}"><input type="checkbox" class="iwork-cb"${iwSubj?' checked':''}><span class="iwork-sw"></span><span class="iwork-label">iワーク/iワークプラスで<br>さらに演習した</span><span class="iwork-pts">+3点</span></label>`;
+  body.appendChild(iwRow);
+  iwRow.querySelector('.iwork-cb').addEventListener('change',function(){
+    const on=this.checked;
+    setIWork(studentName,subj,on);
+    this.parentElement.classList.toggle('on',on);
+    // 各rangeは変わらず、headerだけ更新
+    updateSCardHeader(subj);sRecalcBanner();
   });
 }
 function renderStudentRegistration(){
@@ -1834,10 +1976,10 @@ function calcSchoolRank(studentId){
   const scores=sameSchool.map(s=>{
     const sd=getSD(s.id);const gid=sd.groupId;
     let total=0;
-    getCurrentMats().filter(m=>gid?m.groupId===gid:true).forEach(m=>{
+    const _ms=getCurrentMats().filter(m=>gid?m.groupId===gid:true);let _iwe=0;SUBJECTS.forEach(subj=>{if(getIWork(sd,subj)&&_ms.some(m=>m.subject===subj))_iwe+=3;});_ms.forEach(m=>{
       total+=predScore(m.points,getGauge(sd,m.id));
     });
-    return{id:s.id,score:total};
+    total+=_iwe;return{id:s.id,score:total};
   });
   scores.sort((a,b)=>b.score-a.score);
   const myIdx=scores.findIndex(s=>s.id===studentId);
