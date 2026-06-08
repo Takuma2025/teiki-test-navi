@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+  <!-- ▼ Firebase設定（自分のプロジェクト情報に書き換えてください） -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js" async></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js" async></script>
+  <script>
+    // ▼ Firebaseを使う場合は自分の設定に書き換えてください
+    const firebaseConfig = {
+      apiKey:            "AIzaSyDAXhLk0x-IHtig8MJXprrsTOCesZZCwWs",
+      authDomain:        "testnavi-cf72b.firebaseapp.com",
+      projectId:         "testnavi-cf72b",
+      storageBucket:     "testnavi-cf72b.firebasestorage.app",
+      messagingSenderId: "877120920269",
+      appId:             "1:877120920269:web:59ce6d1800be6e2dc6e784"
+    };
+    let _db = null;
+    try {
+      if(typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY"){
+        firebase.initializeApp(firebaseConfig);
+        _db = firebase.firestore();
+      }
+    } catch(e) { console.warn('Firebase init failed:', e); }
+  </script>
+  <!-- ▲ ここまで -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>定期テスト攻略ナビ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#005cac; --blue2:#1a74c4; --blue-lt:#e8f2fb; --blue-pale:#cce0f5;
+  --navy:#1a2a3a; --text:#222831; --sub:#6b7a8d; --border:#eef0f4;
+  --bg:#fff; --bg2:#f7f9fc;
+  --bad:#dc2626; --ok:#2db87c;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg2);color:var(--text);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;}
+.screen{display:none;}.screen.on{display:block;}
+
+/* ── LOGIN ── */
+#login{min-height:100vh;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#0050a0 0%,#005cac 55%,#1a73c8 100%);padding:40px 24px;}
+.gear-btn{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.75);cursor:pointer;padding:7px 13px;border-radius:20px;transition:.2s;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;letter-spacing:.04em;}
+.gear-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff;}
+.gear-btn svg{width:14px;height:14px;fill:currentColor;flex-shrink:0;}
+.login-avatar{width:90px;height:90px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px;border:2px solid rgba(255,255,255,.3);}
+.login-avatar svg{width:52px;height:52px;fill:rgba(255,255,255,.9);}
+.login-title{font-size:22px;font-weight:700;color:#fff;letter-spacing:.04em;margin-bottom:32px;text-align:center;}
+.login-form-wrap{width:100%;max-width:340px;display:flex;flex-direction:column;gap:14px;}
+.login-field{display:flex;align-items:center;background:rgba(255,255,255,.15);border-radius:12px;padding:0 16px;border:1.5px solid rgba(255,255,255,.25);transition:.2s;}
+.login-field:focus-within{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55);}
+.login-field-icon{flex-shrink:0;margin-right:12px;}
+.login-field-icon svg{width:20px;height:20px;fill:rgba(255,255,255,.65);display:block;}
+.login-field-input{flex:1;background:none;border:none;outline:none;font-size:16px;color:#fff;padding:16px 0;font-family:'Noto Sans JP',sans-serif;}
+.login-field-input::placeholder{color:rgba(255,255,255,.55);}
+.login-btn{width:100%;padding:16px;background:#fff;color:var(--blue);font-size:17px;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:4px;transition:.15s;box-shadow:0 4px 16px rgba(0,0,0,.15);}
+.login-btn:hover{background:#f0f6ff;}
+.login-btn:active{transform:scale(.98);}
+.fl{font-size:11px;font-weight:500;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;}
+.fi{width:100%;font-family:'Noto Sans JP',sans-serif;font-size:15px;padding:11px 13px;border:1.5px solid var(--border);border-radius:9px;outline:none;color:var(--text);transition:.2s;margin-bottom:13px;background:#fff;}
+.fi:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,92,172,.08);}
+.fsel{width:100%;font-family:'Noto Sans JP',sans-serif;font-size:14px;padding:10px 30px 10px 12px;border:1.5px solid var(--border);border-radius:9px;outline:none;color:var(--text);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7a8d'/%3E%3C/svg%3E") no-repeat right 12px center;-webkit-appearance:none;appearance:none;cursor:pointer;transition:.2s;margin-bottom:13px;}
+.fsel:focus{border-color:var(--blue);}
+.ferr{font-size:12px;color:var(--bad);margin-bottom:10px;display:none;}
+.ferr.on{display:block;}
+.btn-lg{width:100%;padding:13px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;transition:.15s;font-family:'Noto Sans JP',sans-serif;letter-spacing:.03em;}
+.btn-lg:hover{background:var(--blue2);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:300;}
+.modal-box{background:#fff;border-radius:16px;padding:26px 22px;width:280px;box-shadow:0 12px 40px rgba(0,0,0,.2);}
+.modal-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:14px;}
+.modal-pin{width:100%;font-family:'Roboto Mono',monospace;font-size:22px;letter-spacing:.25em;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;outline:none;color:var(--text);transition:.2s;margin-bottom:8px;}
+.modal-pin:focus{border-color:var(--blue);}
+.modal-err{font-size:12px;color:var(--bad);margin-bottom:10px;display:none;}
+.modal-err.on{display:block;}
+.modal-btns{display:flex;gap:8px;}
+.btn-ghost{flex:1;padding:10px;background:#fff;color:var(--sub);border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.btn-ghost:hover{background:var(--bg2);}
+.btn-ok{flex:1;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.btn-ok:hover{background:var(--blue2);}
+
+/* ── HEADER ── */
+.hd{background:var(--blue);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 6px rgba(0,0,0,.12);}
+.hd-logo{font-size:17px;font-weight:700;color:#fff;letter-spacing:.04em;}
+.hd-logo small{font-size:10px;color:rgba(255,255,255,.6);font-weight:300;letter-spacing:.12em;display:block;margin-top:1px;}
+.hd-right{display:flex;align-items:center;gap:8px;}
+.hd-name{font-size:12px;color:rgba(255,255,255,.75);font-weight:400;}
+.hd-btn{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.2);font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.hd-btn:hover{background:rgba(255,255,255,.22);}
+.hd-page-title{font-size:15px;font-weight:600;color:#fff;}
+.hd-back{background:none;border:none;color:rgba(255,255,255,.8);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:3px;font-family:'Noto Sans JP',sans-serif;padding:0;white-space:nowrap;}
+.hd-back:hover{color:#fff;}
+#t-hd-center{position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;height:56px;}
+
+/* ── COMMON ── */
+.page-wrap{padding:0 0 80px;}
+.section{background:#fff;margin-bottom:8px;}
+.section-head{padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;}
+.section-badge{display:inline-flex;align-items:center;padding:3px 12px;background:var(--blue);color:#fff;border-radius:20px;font-size:12px;font-weight:500;letter-spacing:.03em;}
+.section-badge.gray{background:var(--sub);}
+.section-meta{font-size:12px;color:var(--sub);}
+.list-item{display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border);cursor:pointer;transition:.12s;background:#fff;}
+.list-item:active{background:var(--bg2);}
+.list-item-main{flex:1;min-width:0;}
+.list-item-title{font-size:14px;font-weight:400;color:var(--text);margin-bottom:4px;}
+.list-item-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;}
+.tag-blue{background:var(--blue);color:#fff;}
+.tag-gray{background:#e8edf3;color:var(--sub);}
+.tag-green{background:#d1fae5;color:#065f46;}
+.list-item-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.score-pill{display:flex;flex-direction:column;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;border:2px solid var(--blue-pale);background:#fff;}
+.score-pill .sp-num{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;color:var(--blue);line-height:1;}
+.score-pill .sp-unit{font-size:8px;color:var(--sub);}
+.chevron{font-size:18px;color:#c5cdd8;margin-left:2px;}
+.t-func-btn{display:flex;align-items:center;gap:14px;width:100%;border:1.5px solid var(--border);border-radius:14px;padding:18px 18px;text-align:left;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;margin-bottom:10px;background:#fff;color:var(--text);box-shadow:0 1px 4px rgba(0,40,100,.04);}
+.t-func-btn:hover{border-color:var(--blue);background:var(--blue-lt);box-shadow:0 4px 12px rgba(0,92,172,.1);}
+.t-func-icon{width:44px;height:44px;border-radius:12px;background:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.t-func-icon svg{width:22px;height:22px;fill:#fff;}
+.t-func-text-wrap{flex:1;}
+.t-func-title{font-size:16px;font-weight:600;display:block;margin-bottom:3px;color:var(--text);letter-spacing:.02em;}
+.t-func-meta{font-size:12px;display:block;color:var(--sub);}
+.t-func-arrow{font-size:20px;color:#c5cdd8;flex-shrink:0;}
+
+/* ── SCORE BANNER ── */
+/* ── GOAL SETUP ── */
+#goal-setup{min-height:100vh;background:var(--blue);padding:32px 24px;}
+#goal-setup.on{display:flex;align-items:center;justify-content:center;}
+.goal-inner{text-align:center;width:100%;max-width:340px;}
+.goal-title{font-size:26px;font-weight:700;color:#fff;margin-bottom:12px;letter-spacing:.02em;}
+.goal-sub{font-size:14px;color:rgba(255,255,255,.7);line-height:1.8;margin-bottom:36px;}
+.goal-input-row{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin-bottom:8px;}
+.goal-input{font-family:'Roboto Mono',monospace;font-size:52px;font-weight:700;color:#fff;background:transparent;border:none;border-bottom:3px solid rgba(255,255,255,.4);outline:none;width:170px;text-align:center;padding:0 0 8px;transition:.2s;}
+.goal-input:focus{border-bottom-color:rgba(255,255,255,.9);}
+.goal-input::placeholder{color:rgba(255,255,255,.35);}
+.goal-unit{font-size:22px;color:rgba(255,255,255,.65);padding-bottom:8px;}
+.goal-max-lbl{font-size:12px;color:rgba(255,255,255,.45);font-family:'Roboto Mono',monospace;margin-bottom:36px;}
+.goal-err{font-size:12px;color:rgba(255,200,200,.9);margin-bottom:16px;min-height:18px;}
+.goal-btn{width:100%;padding:16px;background:#fff;color:var(--blue);border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-bottom:14px;transition:.15s;letter-spacing:.02em;}
+.goal-btn:hover{background:rgba(255,255,255,.9);}
+.goal-skip{background:transparent;border:none;color:rgba(255,255,255,.4);font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-decoration:underline;}
+.goal-skip:hover{color:rgba(255,255,255,.7);}
+/* ── ANALYZING PENDING ── */
+.sim-pending{display:none;padding:4px 0 6px;}
+.sim-pending.on{display:block;}
+.sim-bars{display:flex;align-items:flex-end;gap:5px;height:32px;margin-bottom:12px;}
+.sim-bar{width:5px;background:#fff;border-radius:2px;transform-origin:bottom;animation:sim-pulse 1.1s ease-in-out infinite;opacity:.95;}
+.sim-bar:nth-child(1){animation-delay:0s;}
+.sim-bar:nth-child(2){animation-delay:.08s;}
+.sim-bar:nth-child(3){animation-delay:.16s;}
+.sim-bar:nth-child(4){animation-delay:.24s;}
+.sim-bar:nth-child(5){animation-delay:.32s;}
+.sim-bar:nth-child(6){animation-delay:.4s;}
+.sim-bar:nth-child(7){animation-delay:.48s;}
+.sim-bar:nth-child(8){animation-delay:.56s;}
+@keyframes sim-pulse{0%,100%{height:25%;opacity:.35;}50%{height:100%;opacity:1;}}
+.sim-label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fff;letter-spacing:.08em;margin-bottom:4px;}
+.sim-label::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80;animation:sim-dot 1.4s ease-in-out infinite;}
+@keyframes sim-dot{0%,100%{opacity:.4;}50%{opacity:1;}}
+.sim-sub{font-size:11px;color:rgba(255,255,255,.55);line-height:1.5;}
+.score-banner{background:var(--blue);margin-bottom:8px;padding:16px 20px 16px;border-radius:0;}
+.score-lbl{font-size:13px;color:#fff;font-weight:600;letter-spacing:.04em;margin-bottom:6px;}
+.score-range{display:inline-block;font-size:11px;color:#fff;margin-top:8px;font-weight:500;border:1.5px solid rgba(255,255,255,.5);padding:4px 12px;border-radius:20px;background:rgba(255,255,255,.08);}
+
+/* 目標点カード */
+.score-target-card{margin-bottom:18px;}
+.stv-row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 2px 8px rgba(0,0,0,.1);}
+.stv-left{flex:1;}
+.stv-lbl{font-size:10px;color:var(--sub);letter-spacing:.08em;font-weight:600;margin-bottom:2px;}
+.stv-score{display:flex;align-items:baseline;gap:4px;}
+.stv-num{font-family:'Roboto Mono',monospace;font-size:26px;font-weight:700;color:var(--blue);line-height:1;}
+.stv-unit{font-size:13px;color:var(--sub);font-weight:500;}
+.stv-mid{text-align:center;padding:0 12px;border-left:1.5px solid var(--border);}
+.stv-diff-lbl{font-size:9px;color:var(--sub);letter-spacing:.06em;font-weight:600;margin-bottom:1px;}
+.stv-diff-num{font-family:'Roboto Mono',monospace;font-size:20px;font-weight:700;color:var(--text);line-height:1;}
+.stv-diff-unit{font-size:10px;color:var(--sub);}
+.stv-btn{flex-shrink:0;background:var(--blue-lt);border:1px solid var(--blue-pale);color:var(--blue);font-size:11px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;white-space:nowrap;}
+.stv-btn:hover{background:var(--blue);color:#fff;}
+.ste-row{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 2px 8px rgba(0,0,0,.1);}
+.ste-lbl{font-size:11px;color:var(--sub);font-weight:600;white-space:nowrap;}
+.ste-input-wrap{display:flex;align-items:baseline;gap:5px;flex:1;}
+.ste-input{font-family:'Roboto Mono',monospace;font-size:22px;font-weight:700;color:var(--text);background:var(--bg2);border:1.5px solid var(--border);border-radius:8px;padding:4px 10px;outline:none;width:90px;text-align:center;transition:.15s;}
+.ste-input::placeholder{color:#d1d5db;font-weight:400;}
+.ste-input:focus{border-color:var(--blue);background:#fff;}
+.ste-unit{font-size:13px;color:var(--sub);}
+.ste-btn{background:var(--blue);color:#fff;font-size:13px;font-weight:700;border:none;border-radius:10px;padding:8px 16px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
+.ste-btn:hover{background:#004a8f;}
+/* 達成時：オレンジ */
+.score-target-card.clear .stv-row{background:linear-gradient(135deg,#fbbf24,#f97316);box-shadow:0 4px 14px rgba(249,115,22,.3);}
+.score-target-card.clear .stv-lbl,.score-target-card.clear .stv-unit,.score-target-card.clear .stv-diff-lbl,.score-target-card.clear .stv-diff-unit{color:rgba(255,255,255,.8);}
+.score-target-card.clear .stv-num,.score-target-card.clear .stv-diff-num{color:#fff;}
+.score-target-card.clear .stv-mid{border-left-color:rgba(255,255,255,.3);}
+.score-target-card.clear .stv-btn{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);color:#fff;}
+
+/* 得点+ランキング 横並び */
+.score-main-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:3px;flex-wrap:wrap;}
+.score-main{display:flex;align-items:baseline;gap:6px;line-height:1;}
+.score-num{font-family:'Roboto Mono',monospace;font-size:64px;font-weight:700;color:#fff;line-height:1;}
+.score-num-unit{font-size:20px;font-weight:500;color:rgba(255,255,255,.7);}
+.score-out-of{font-size:14px;color:rgba(255,255,255,.5);margin-left:6px;font-family:'Roboto Mono',monospace;}
+.score-disclaimer{font-size:9px;color:rgba(255,255,255,.4);margin-top:6px;line-height:1.5;}
+.score-denom{font-family:'Roboto Mono',monospace;font-size:16px;color:#b0bac8;line-height:1;}
+.score-unit{font-size:12px;color:var(--sub);}
+.score-pct-wrap{flex:1;}
+.score-pct-bar{height:6px;background:#edf2f7;border-radius:3px;overflow:hidden;margin-bottom:5px;}
+.score-pct-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .5s cubic-bezier(.34,1.4,.64,1);}
+.score-pct-lbl{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:500;color:var(--text);}
+/* subject mini rows */
+.subj-rows{display:flex;flex-direction:column;gap:0;}
+.subj-mini{display:flex;align-items:center;gap:10px;padding:4px 0;}
+.subj-mini-name{font-size:12px;color:rgba(255,255,255,.65);width:28px;flex-shrink:0;}
+.subj-mini-bar{flex:1;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden;}
+.subj-mini-fill{height:100%;background:rgba(255,255,255,.85);border-radius:2px;transition:width .4s;}
+.subj-mini-val{font-family:'Roboto Mono',monospace;font-size:11px;color:rgba(255,255,255,.75);white-space:nowrap;min-width:54px;text-align:right;}
+
+/* ── STUDENT SUBJECT CARD ── */
+.subj-card{background:#fff;margin-bottom:8px;}
+.subj-card-hd{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;transition:.12s;}
+.subj-card-hd:active{background:var(--bg2);}
+.subj-card.open .subj-card-hd{background:var(--bg2);}
+.schd-badge{font-size:12px;font-weight:500;color:#fff;background:var(--blue);border-radius:20px;padding:3px 12px;flex-shrink:0;}
+.schd-bar-wrap{flex:1;display:flex;flex-direction:column;gap:3px;}
+.schd-bar-tr{height:4px;background:#edf2f7;border-radius:2px;overflow:hidden;}
+.schd-bar-f{height:100%;background:var(--blue);border-radius:2px;transition:width .4s;}
+.schd-score{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--blue);flex-shrink:0;white-space:nowrap;}
+.schd-score .dn{font-size:10px;color:#b0bac8;font-weight:400;}
+.schd-rng{font-size:10px;color:#b0bac8;}
+.schd-car{font-size:10px;color:#c5cdd8;transition:transform .2s;flex-shrink:0;}
+.subj-card.open .schd-car{transform:rotate(90deg);}
+.subj-card-body{display:none;border-top:1px solid var(--border);padding:10px 12px;background:var(--bg2);}
+.subj-card.open .subj-card-body{display:block;animation:fadeIn .15s ease;}
+.mat-item{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--border);border-radius:10px;padding:14px 14px 12px;background:#fff;box-shadow:0 1px 4px rgba(0,40,100,.04);margin-bottom:8px;}
+.mat-item:last-child{margin-bottom:0;}
+.mat-item-info{flex:1;min-width:0;}
+.mat-item-name{font-size:14px;font-weight:500;color:var(--text);margin-bottom:8px;}
+.mat-item-sel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.mat-sel{font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:600;color:var(--text);background-color:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 36px 9px 14px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%23475569' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:100%;max-width:320px;transition:.15s;}
+.mat-sel option{color:var(--text);background:#fff;font-weight:400;}
+.mat-pred{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--blue);flex-shrink:0;white-space:nowrap;}
+.mat-lv-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;margin-top:4px;}
+.mat-lbl{font-size:10px;font-weight:500;color:var(--sub);font-family:'Roboto Mono',monospace;flex-shrink:0;width:34px;}
+
+/* ── TEACHER HOME ── */
+.t-class-card{background:#fff;border-top:1px solid var(--border);}
+.t-class-item{display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:.12s;background:#fff;}
+.t-class-item:active,.t-class-item:hover{background:var(--blue-lt);}
+.t-class-item:last-child{border-bottom:none;}
+.grade-pill{display:inline-flex;align-items:center;background:var(--blue);color:#fff;font-size:10px;font-weight:600;padding:2px 9px;border-radius:5px;letter-spacing:.02em;vertical-align:middle;margin-right:4px;flex-shrink:0;}
+.t-class-grade{flex-shrink:0;background:var(--blue);color:#fff;font-size:13px;font-weight:600;padding:6px 12px;border-radius:8px;text-align:center;min-width:42px;letter-spacing:.02em;}
+.t-class-info{flex:1;min-width:0;}
+.t-class-school{font-size:15px;font-weight:500;color:var(--text);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.t-class-meta{font-size:12px;color:var(--sub);}
+.t-class-arrow{font-size:18px;color:#c5cdd8;flex-shrink:0;}
+/* add class form */
+.add-form-wrap{background:#fff;padding:16px;border-bottom:1px solid var(--border);display:none;}
+.add-form-wrap.open{display:block;}
+.add-form-title{font-size:12px;font-weight:500;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px;}
+.add-form-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.add-form-col{display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px;}
+.add-form-col label{font-size:10px;font-weight:500;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;}
+.add-form-col input,.add-form-col select{font-family:'Noto Sans JP',sans-serif;font-size:14px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;color:var(--text);background:#fff;transition:.2s;-webkit-appearance:none;appearance:none;}
+.add-form-col input:focus,.add-form-col select:focus{border-color:var(--blue);}
+.add-form-col select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7a8d'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer;}
+.add-form-actions{display:flex;gap:8px;}
+.btn-add-ok{padding:9px 20px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.btn-add-ok:hover{background:var(--blue2);}
+.btn-add-cancel{padding:9px 14px;background:#fff;color:var(--sub);border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.btn-add-cancel:hover{background:var(--bg2);}
+.add-form-err{font-size:12px;color:var(--bad);margin-bottom:10px;display:none;}
+.add-form-err.on{display:block;}
+.btn-add-class{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 32px);margin:12px 16px;padding:12px;background:#fff;border:1.5px dashed #c5cdd8;border-radius:10px;color:var(--sub);font-size:13px;cursor:pointer;transition:.15s;font-family:'Noto Sans JP',sans-serif;}
+.btn-add-class:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-lt);}
+
+/* ── TEACHER CLASS ROOM ── */
+.class-info-bar{background:#fff;border-bottom:1px solid var(--border);}
+.class-header-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;}
+.class-header-name{font-size:17px;font-weight:500;color:var(--text);}
+.class-header-del{background:none;border:none;font-size:12px;color:#c5cdd8;cursor:pointer;padding:4px 2px;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
+.class-header-del:hover{color:var(--bad);}
+.class-date-section{display:flex;align-items:center;gap:10px;padding:2px 16px 14px;}
+.class-date-section-lbl{font-size:12px;color:var(--sub);flex-shrink:0;}
+.class-date-pick{font-family:'Noto Sans JP',monospace;font-size:14px;font-weight:500;color:var(--blue);border:1.5px solid var(--blue-pale);background:var(--blue-lt);border-radius:8px;padding:6px 12px;outline:none;cursor:pointer;transition:.2s;}
+.class-date-pick:focus{border-color:var(--blue);}
+.class-date-saved-lbl{font-size:11px;color:var(--ok);opacity:0;transition:.3s;}
+.class-date-saved-lbl.on{opacity:1;}
+.subj-tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);}
+.subj-tab{flex:1;padding:11px 4px;text-align:center;font-size:13px;font-weight:400;cursor:pointer;border:none;background:none;color:#b0bac8;transition:.15s;position:relative;}
+.subj-tab.active{color:var(--blue);font-weight:500;}
+.subj-tab.active::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--blue);}
+.dot{width:4px;height:4px;border-radius:50%;background:var(--blue);position:absolute;top:9px;right:calc(50% - 14px);display:none;}
+.dot.on{display:block;}
+.range-list{background:#fff;}
+.range-item{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border);}
+.range-item:last-child{border-bottom:none;}
+.range-pts-wrap{display:flex;align-items:center;gap:3px;flex-shrink:0;}
+.range-pts-lbl{font-size:10px;color:var(--sub);}
+.range-pts-input{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--blue);width:52px;text-align:right;border:1.5px solid transparent;border-radius:6px;padding:3px 6px;background:transparent;outline:none;transition:.15s;-moz-appearance:textfield;}
+.range-pts-input::-webkit-inner-spin-button,.range-pts-input::-webkit-outer-spin-button{opacity:1;}
+.range-pts-input:hover{border-color:var(--border);background:var(--bg2);}
+.range-pts-input:focus{border-color:var(--blue);background:#fff;}
+.range-pts-unit{font-size:11px;color:var(--sub);}
+.range-total-row{display:flex;align-items:center;gap:6px;padding:10px 16px;border-top:2px solid var(--border);background:var(--bg2);}
+.range-idx{font-size:10px;color:var(--sub);font-family:'Roboto Mono',monospace;width:34px;flex-shrink:0;}
+.range-nm{flex:1;font-size:14px;font-weight:400;color:var(--text);}
+.range-pts{font-family:'Roboto Mono',monospace;font-size:12px;color:var(--sub);flex-shrink:0;}
+.range-del{background:none;border:none;color:#c5cdd8;cursor:pointer;font-size:18px;padding:4px;border-radius:4px;transition:.15s;}
+.range-del:hover{color:var(--bad);}
+.range-empty{padding:28px;text-align:center;color:#b0bac8;font-size:13px;}
+.add-range-form{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;padding:14px 16px;background:var(--bg2);border-top:1px solid var(--border);}
+.add-range-form .afc{display:flex;flex-direction:column;gap:4px;}
+.add-range-form .afc label{font-size:10px;font-weight:500;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;}
+.add-range-form .afc input{font-family:'Noto Sans JP',sans-serif;font-size:14px;padding:8px 11px;border:1.5px solid var(--border);border-radius:8px;outline:none;color:var(--text);background:#fff;transition:.2s;}
+.add-range-form .afc input:focus{border-color:var(--blue);}
+.btn-add{padding:9px 16px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;align-self:flex-end;white-space:nowrap;}
+.btn-add:hover{background:var(--blue2);}
+
+/* ── SETTINGS ── */
+.settings-wrap{background:#fff;}
+.settings-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);}
+.settings-item:last-child{border-bottom:none;}
+.settings-label{font-size:13px;color:var(--text);width:80px;flex-shrink:0;}
+.settings-input{flex:1;font-family:'Noto Sans JP',sans-serif;font-size:14px;padding:8px 11px;border:1.5px solid var(--border);border-radius:8px;outline:none;color:var(--text);transition:.2s;}
+.settings-input:focus{border-color:var(--blue);}
+.btn-save{padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;}
+.btn-save:hover{background:var(--blue2);}
+.save-tick{font-size:14px;color:var(--ok);opacity:0;transition:.3s;}
+.save-tick.on{opacity:1;}
+
+.mat-item-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:3px;}
+.mat-alloc{font-size:10px;color:var(--sub);font-family:'Roboto Mono',monospace;white-space:nowrap;}
+
+
+/* ── SCORE BANNER extras ── */
+.sb-pred-header{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.sb-pred-label{font-size:13px;font-weight:500;color:rgba(255,255,255,.9);}
+.sb-pred-tag{font-size:9px;color:rgba(255,255,255,.5);font-family:'Roboto Mono',monospace;letter-spacing:.1em;background:rgba(255,255,255,.12);padding:2px 7px;border-radius:4px;}
+.sb-tilde{font-size:26px;color:rgba(255,255,255,.45);font-family:'Roboto Mono',monospace;line-height:1;align-self:flex-end;padding-bottom:4px;}
+
+/* ── CALENDAR ── */
+.cal-card{background:#fff;margin-bottom:8px;padding:14px 16px;}
+.cal-months{display:flex;gap:20px;flex-wrap:wrap;}
+.cal-section{flex:1;min-width:130px;}
+.cal-sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.cal-month-lbl{font-size:12px;font-weight:500;color:var(--text);}
+.cal-countdown{font-size:11px;font-weight:500;color:var(--blue);background:var(--blue-lt);padding:2px 9px;border-radius:20px;}
+.cal-countdown.urgent{color:#e05050;background:#fff5f5;}
+.cal-countdown.warning{color:#d97706;background:#fffbeb;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}
+.cal-dow{text-align:center;font-size:9px;color:var(--sub);padding:2px 0;font-weight:500;}
+.cal-dow.sun{color:#e05050;}.cal-dow.sat{color:var(--blue);}
+.cal-day{display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:50%;width:26px;height:26px;margin:0 auto;color:var(--text);}
+.cal-day.sun{color:#e05050;}.cal-day.sat{color:var(--blue);}
+.cal-day.other-m{color:#d0d5dd;}
+.cal-day.between{background:var(--blue-lt);color:var(--blue);border-radius:0;width:100%;margin:0;}
+.cal-day.bt-first{border-radius:50% 0 0 50%;margin-left:auto;width:26px;}
+.cal-day.bt-last{border-radius:0 50% 50% 0;margin-right:auto;width:26px;}
+.cal-day.today{background:var(--blue) !important;color:#fff !important;font-weight:700;border-radius:50%;width:26px;margin:0 auto;}
+.cal-day.testday{background:#e05050 !important;color:#fff !important;font-weight:700;border-radius:50%;width:26px;margin:0 auto;}
+.cal-legend{display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.cal-leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--sub);}
+.cal-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* ── STU LIST (teacher) ── */
+.stu-row-t{background:#fff;border-bottom:1px solid var(--border);}
+.stu-row-t:last-child{border-bottom:none;}
+.stu-sum{padding:14px 16px;cursor:pointer;transition:.12s;}
+.stu-sum:active,.stu-row-t.open .stu-sum{background:var(--blue-lt);}
+.stu-sum-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.stu-sum-bot{display:flex;align-items:center;gap:6px;}
+.stu-name-lg{font-size:15px;font-weight:500;color:var(--text);flex:1;}
+.stu-score-lg{font-family:'Roboto Mono',monospace;font-size:15px;font-weight:600;color:var(--blue);}
+.stu-score-max{font-size:11px;color:#b0bac8;font-family:'Roboto Mono',monospace;}
+.stu-time-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.stu-time-lbl{font-size:11px;color:var(--sub);}
+.stu-time-lbl.fresh{color:var(--blue);}
+.stu-gtag-sm{font-size:10px;color:var(--sub);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Roboto Mono',monospace;margin-left:auto;}
+#t-room-students .page-wrap-inner{padding:12px 14px 80px;}
+.stu-group-card .stu-row-t:last-child{border-bottom:none;}
+.stu-filter-btn{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:400;border:1.5px solid var(--border);background:#fff;color:var(--sub);cursor:pointer;transition:.15s;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;box-shadow:0 1px 3px rgba(0,40,100,.04);}
+.stu-filter-btn.active{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500;}
+.stu-filter-btn:hover:not(.active){border-color:var(--blue);color:var(--blue);}
+.stu-filter-count{font-family:'Roboto Mono',monospace;font-size:11px;font-weight:600;background:var(--border);color:var(--sub);padding:1px 7px;border-radius:10px;transition:.15s;}
+.stu-filter-btn.active .stu-filter-count{background:rgba(255,255,255,.25);color:#fff;}
+.stu-group-card{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,40,100,.05);}
+.stu-group-header{background:linear-gradient(135deg,#005cac 0%,#1a74c4 100%);padding:14px 16px;display:flex;align-items:center;gap:12px;position:relative;}
+.stu-group-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.stu-group-icon svg{width:18px;height:18px;fill:#fff;}
+.stu-group-info{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0;}
+.stu-group-school{font-size:14px;font-weight:600;color:#fff;letter-spacing:.02em;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.stu-group-grade{font-size:11px;color:rgba(255,255,255,.7);font-weight:400;letter-spacing:.04em;}
+.stu-group-count-pill{display:flex;align-items:baseline;gap:2px;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:20px;}
+.stu-group-count-num{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:#fff;line-height:1;}
+.stu-group-count-unit{font-size:10px;color:rgba(255,255,255,.7);}
+.stu-updated{font-size:11px;color:var(--sub);flex-shrink:0;margin:0 8px;}
+.stu-cv{font-size:10px;color:#c5cdd8;transition:transform .2s;}
+.stu-row-t.open .stu-cv{transform:rotate(90deg);}
+.stu-det{display:none;border-top:1px solid var(--border);background:var(--bg2);}
+.stu-detail-hero{background:#fff;padding:22px 18px 20px;border-bottom:1px solid var(--border);}
+.stu-detail-name{font-size:22px;font-weight:600;color:var(--text);margin-bottom:10px;letter-spacing:.02em;}
+.stu-detail-meta{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.stu-detail-class{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--blue);background:var(--blue-lt);border:1px solid var(--blue-pale);border-radius:6px;padding:3px 10px;font-weight:500;}
+.stu-detail-time{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--sub);}
+.stu-detail-time.fresh{color:var(--blue);}
+.stu-detail-time-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.stu-detail-score-wrap{padding-top:16px;border-top:1px solid var(--border);}
+.stu-detail-score-lbl{font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:6px;}
+.stu-detail-score{display:flex;align-items:baseline;gap:6px;}
+.stu-detail-score-num{font-family:'Roboto Mono',monospace;font-size:38px;font-weight:700;color:var(--blue);line-height:1;}
+.stu-detail-score-max{font-family:'Roboto Mono',monospace;font-size:15px;color:#b0bac8;}
+.stu-detail-score-unit{font-size:13px;color:var(--sub);}
+.stu-detail-subj{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,40,100,.06);}
+.stu-detail-subj-head{background:var(--blue);padding:11px 16px;display:flex;align-items:center;gap:12px;}
+.stu-detail-subj-name{font-size:15px;font-weight:700;color:#fff;width:36px;flex-shrink:0;}
+.stu-detail-subj-bar-wrap{flex:1;}
+.stu-detail-subj-bar-bg{height:6px;background:rgba(255,255,255,.25);border-radius:3px;overflow:hidden;}
+.stu-detail-subj-bar-fill{height:100%;background:#fff;border-radius:3px;transition:width .4s;}
+.stu-detail-subj-score{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:#fff;white-space:nowrap;}
+.stu-detail-mat{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);background:#fff;}
+.stu-detail-mat:last-child{border-bottom:none;}
+.stu-detail-mat-idx{font-size:10px;color:var(--sub);font-family:'Roboto Mono',monospace;background:var(--bg2);padding:3px 7px;border-radius:4px;flex-shrink:0;}
+.stu-detail-mat-name{flex:1;font-size:13px;color:var(--text);font-weight:500;min-width:0;}
+.stu-detail-mat-level{display:inline-block;font-size:11px;font-weight:500;padding:3px 10px;border-radius:5px;line-height:1.3;border:1px solid;flex-shrink:0;white-space:nowrap;}
+.stu-detail-mat-sel{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:600;background-color:#fff;border:1px solid var(--border);border-radius:7px;padding:6px 28px 6px 12px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%23475569' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;flex:0 1 240px;min-width:180px;transition:.15s;}
+.stu-detail-mat-sel option{color:var(--text);background:#fff;font-weight:400;}
+.stu-detail-mat-score{font-family:'Roboto Mono',monospace;font-size:12px;font-weight:600;color:var(--blue);white-space:nowrap;flex-shrink:0;min-width:60px;text-align:right;}
+.stu-det.on{display:block;}
+.stu-sb{border-bottom:1px solid var(--border);padding:12px 16px;}
+.stu-sb:last-child{border-bottom:none;}
+.stu-sh{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.stu-snm{font-size:11px;font-weight:500;color:var(--blue);width:34px;flex-shrink:0;}
+.stu-sbar{flex:1;height:4px;background:#d8e4f0;border-radius:2px;overflow:hidden;}
+.stu-sbar-f{height:100%;background:var(--blue);border-radius:2px;}
+.stu-ssc{font-family:'Roboto Mono',monospace;font-size:12px;font-weight:500;color:var(--blue);white-space:nowrap;}
+.stu-mi{display:flex;align-items:center;gap:8px;background:#fff;border-radius:7px;padding:8px 10px;margin-bottom:5px;}
+.stu-mi:last-child{margin-bottom:0;}
+.stu-mn{font-size:12px;color:var(--text);flex:1;}
+.stu-ml{font-size:11px;font-weight:500;padding:2px 9px;border-radius:4px;background:var(--blue);color:#fff;white-space:nowrap;flex-shrink:0;}
+.stu-ml.zero{background:#e8edf3;color:var(--sub);}
+.stu-mp{font-family:'Roboto Mono',monospace;font-size:11px;font-weight:500;color:var(--blue);white-space:nowrap;flex-shrink:0;}
+
+.page-title{font-size:11px;font-weight:500;color:var(--sub);letter-spacing:.1em;text-transform:uppercase;padding:18px 16px 10px;background:var(--bg2);}
+.empty-msg{padding:32px 16px;text-align:center;color:#b0bac8;font-size:13px;}
+.empty-msg b{display:block;font-size:15px;font-weight:500;color:var(--sub);margin-bottom:6px;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.t-mini-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;font-size:12px;font-weight:500;color:var(--sub);background:var(--bg2);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;white-space:nowrap;}
+.t-mini-btn:hover{background:var(--blue-lt);color:var(--blue);border-color:var(--blue-pale);}
+.dash-section{background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;}
+.s-rank-wrap{background:rgba(255,255,255,.1);border-radius:10px;padding:8px 14px;text-align:center;}
+.s-rank-lbl{font-size:9px;color:rgba(255,255,255,.7);letter-spacing:.12em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:3px;}
+.s-rank-val{display:flex;align-items:baseline;color:#fff;justify-content:center;}
+.s-rank-num{font-family:'Roboto Mono',monospace;font-size:28px;font-weight:700;line-height:1;}
+.s-rank-slash{font-size:14px;color:rgba(255,255,255,.5);margin:0 3px;}
+.s-rank-total{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:500;color:rgba(255,255,255,.8);}
+.s-rank-unit{font-size:11px;color:rgba(255,255,255,.7);margin-left:3px;}
+.s-rank-school{font-size:10px;color:rgba(255,255,255,.7);margin-top:2px;}
+.dash-section-hd{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--blue);border-bottom:1px solid var(--border);}
+.dash-grade-pill{font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:10px;}
+.dash-school{font-size:13px;font-weight:600;color:#fff;}
+.dash-count{margin-left:auto;font-size:11px;color:rgba(255,255,255,.75);}
+.dash-table{width:100%;overflow-x:auto;}
+.dash-tr{display:grid;grid-template-columns:1fr 80px repeat(5,56px) 68px;min-width:480px;}
+.dash-thead{background:var(--bg2);border-bottom:1px solid var(--border);}
+.dash-thead div{font-size:10px;font-weight:600;color:var(--sub);padding:7px 10px;letter-spacing:.05em;}
+.dash-trow{border-bottom:1px solid var(--border);transition:.12s;}
+.dash-trow:last-child{border-bottom:none;}
+.dash-trow:hover{background:var(--blue-lt);}
+.dash-td-name,.dash-td-total,.dash-td-subj,.dash-td-time{padding:10px 10px;display:flex;align-items:center;}
+.dash-name{font-size:13px;font-weight:500;color:var(--text);font-family:'Roboto Mono',monospace;}
+.dash-total-val{font-size:17px;font-weight:700;font-family:'Roboto Mono',monospace;}
+.dash-total-max{font-size:10px;color:var(--sub);}
+.dash-subj-val{font-size:12px;font-weight:600;font-family:'Roboto Mono',monospace;background:#e5e7eb;color:#fff;padding:3px 6px;border-radius:5px;min-width:28px;text-align:center;}
+.dash-subj-val.dash-na{background:transparent;color:#d1d5db;font-size:14px;}
+.dash-time{font-size:11px;color:var(--sub);}
+.dash-time.fresh{color:var(--blue);}
+.cr-class-card{display:flex;align-items:center;background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px;}
+.cr-card-left{flex-shrink:0;padding:6px 10px;background:var(--blue);}
+.cr-grade-lbl{font-size:11px;font-weight:600;color:#fff;letter-spacing:.02em;font-family:'Noto Sans JP',sans-serif;}
+.cr-card-body{flex:1;padding:8px 12px;display:flex;align-items:center;gap:10px;}
+.cr-school-name{font-size:13px;font-weight:500;color:var(--text);}
+.cr-stu-count{font-size:11px;color:var(--sub);margin-left:auto;}
+.cr-del-btn{background:none;border:none;cursor:pointer;padding:6px 12px;color:#d1d5db;display:flex;align-items:center;transition:.15s;}
+.cr-del-btn:hover{color:#ef4444;}
+.cr-del-btn svg{width:16px;height:16px;fill:currentColor;}
+#cr-class-list{padding:14px 16px 0;}
+.t-dm-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.s-section-title-wrap{padding:20px 16px 10px;}
+.s-section-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.s-section-title::before{content:'';display:inline-block;width:4px;height:18px;background:var(--blue);border-radius:2px;}
+.s-section-sub{font-size:12px;color:var(--sub);line-height:1.65;}
+.hd-btn-sub{background:none;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.75);font-size:11px;font-weight:500;padding:5px 10px;border-radius:16px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
+.hd-btn-sub:hover{background:rgba(255,255,255,.15);color:#fff;}
+.modal-err{font-size:12px;color:#dc2626;min-height:18px;margin-bottom:8px;}
+/* ── RESPONSIVE (タブレット・PC対応) ── */
+html{background:var(--bg2);}
+
+/* タブレット以上 */
+@media (min-width:700px){
+  html{background:var(--bg2);}
+  body{
+    max-width:100%;
+    min-height:100vh;
+    background:var(--bg2);
+  }
+  /* ログインカードを少し大きく */
+  .login-card{max-width:400px;padding:38px 32px;}
+  .app-logo img{width:320px !important;}
+  /* ゴール設定を中央カード化 */
+  .goal-card{max-width:480px;margin-left:auto;margin-right:auto;}
+}
+
+/* PC：画面いっぱいに広げる */
+@media (min-width:1000px){
+  body{max-width:100%;}
+  .hd{padding:0 40px;}
+  /* ダッシュボードは1カラム＆フル幅、テーブルを大きく表示 */
+  #t-dash-list{display:block;}
+  .dash-section{margin-bottom:20px;}
+  .dash-tr{grid-template-columns:minmax(140px,1.5fr) 110px repeat(5,minmax(70px,1fr)) 100px;min-width:0;}
+  .dash-thead div{font-size:12px;padding:10px 14px;}
+  .dash-td-name,.dash-td-total,.dash-td-subj,.dash-td-time{padding:12px 14px;}
+  .dash-name{font-size:14px;}
+  .dash-total-val{font-size:20px;}
+  .dash-subj-val{font-size:13px;padding:4px 9px;min-width:36px;}
+  #t-dash-filter-bar{padding:14px 40px;}
+  #t-home > div[style*="padding:20px 14px"]{padding-left:40px;padding-right:40px;}
+  #t-home > div[style*="padding:12px 14px"]{padding-left:40px;padding-right:40px;}
+  /* 生徒画面の科目カードを3カラムに */
+  #s-cards{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+    align-items:start;
+  }
+  /* クラス一覧・各セクションの余白拡大 */
+  .t-class-card{padding-left:24px;padding-right:24px;}
+  /* 生徒画面のメインコンテンツ余白 */
+  #student > div:not(.hd){padding-left:24px;padding-right:24px;}
+}
+
+/* 大画面PC：さらに多カラム */
+@media (min-width:1500px){
+  #s-cards{grid-template-columns:repeat(4,1fr);}
+  .dash-tr{grid-template-columns:minmax(180px,2fr) 120px repeat(5,minmax(80px,1fr)) 110px;}
+  .dash-name{font-size:15px;}
+  .dash-total-val{font-size:22px;}
+  .dash-subj-val{font-size:14px;padding:5px 11px;min-width:40px;}
+  .hd{padding:0 60px;}
+  #t-dash-filter-bar{padding:14px 60px;}
+  #t-home > div[style*="padding:20px 14px"]{padding-left:60px;padding-right:60px;}
+  #t-home > div[style*="padding:12px 14px"]{padding-left:60px;padding-right:60px;}
+}
+</style>
+</head>
+<body>
+
+<!-- PIN MODAL -->
+<div id="loading-screen" style="position:fixed;inset:0;background:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;">
+  <div style="font-size:22px;font-weight:700;color:#fff;">定期テスト攻略ナビ</div>
+  <div style="display:flex;gap:6px;">
+    <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);animation:ldot 1.2s infinite .0s both"></span>
+    <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);animation:ldot 1.2s infinite .2s both"></span>
+    <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);animation:ldot 1.2s infinite .4s both"></span>
+  </div>
+</div>
+<style>@keyframes ldot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}</style>
+<div id="pin-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">先生ログイン</div>
+    <div class="fl">PINコード</div>
+    <input class="modal-pin" id="modal-pin" type="password" maxlength="8" placeholder="••••" inputmode="numeric">
+    <div class="modal-err" id="modal-err">PINが違います</div>
+    <div class="modal-btns">
+      <button class="btn-ghost" id="btn-cancel">キャンセル</button>
+      <button class="btn-ok" id="btn-confirm">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<!-- PW CHANGE MODAL -->
+<div id="pw-change-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 class="modal-title">パスワード変更</h3>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:12px;">現在のパスワード</div>
+    <input class="modal-pin" id="pw-old" type="password" maxlength="8" placeholder="••••" inputmode="numeric">
+    <div style="font-size:11px;color:var(--sub);margin-bottom:4px;">新しいパスワード</div>
+    <input class="modal-pin" id="pw-new1" type="password" maxlength="8" placeholder="••••" inputmode="numeric">
+    <div style="font-size:11px;color:var(--sub);margin-bottom:4px;">新しいパスワード（確認）</div>
+    <input class="modal-pin" id="pw-new2" type="password" maxlength="8" placeholder="••••" inputmode="numeric">
+    <div class="modal-err" id="pw-change-err"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" id="pw-change-cancel">キャンセル</button>
+      <button class="btn-modal-ok" id="pw-change-ok">変更する</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login" class="screen on">
+  <button class="gear-btn" id="gear-btn" title="先生ログイン"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 14c-2.67 0-5.11-1.28-6.6-3.47C6.83 13.8 9.32 13 12 13s5.17.8 6.6 2.53C17.11 17.72 14.67 19 12 19z"/></svg>TEACHER</button>
+  <div class="login-title">定期テスト攻略ナビ</div>
+  <div class="login-form-wrap">
+    <div class="login-field">
+      <input class="login-field-input" id="id-input" type="text" placeholder="ID" autocomplete="off">
+    </div>
+    <div class="login-field">
+      <span class="login-field-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></span>
+      <input class="login-field-input" id="pw-input" type="password" placeholder="パスワード" autocomplete="off">
+    </div>
+    <div class="ferr" id="login-err">IDまたはパスワードが正しくありません</div>
+    <button class="login-btn" id="btn-login">ログイン</button>
+  </div>
+</div>
+
+<!-- TEACHER -->
+<div id="teacher" class="screen">
+  <div class="hd" id="t-hd">
+    <div id="t-hd-left">
+      <div class="hd-logo"><small>TEACHER MODE</small></div>
+    </div>
+    <div id="t-hd-center"></div>
+    <div class="hd-right">
+      <button class="hd-btn-sub" id="t-pw-change">PW変更</button>
+      <button class="hd-btn" id="t-logout">ログアウト</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+    <!-- HOME -->
+    <div id="t-home">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);background:#fff;">
+        <button class="t-mini-btn" id="t-nav-class-reg">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;flex-shrink:0"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>
+          クラス登録
+        </button>
+        <button class="t-mini-btn" id="t-nav-stu-reg">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;flex-shrink:0"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          生徒登録
+        </button>
+        <button class="t-mini-btn" id="t-nav-register">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;flex-shrink:0"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          テスト範囲登録
+        </button>
+        <span id="t-reg-meta" style="margin-left:auto;font-size:11px;color:var(--sub);"></span>
+      </div>
+      <!-- DASHBOARD -->
+      <div style="padding:20px 14px 8px;">
+        <div style="font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:8px;">DASHBOARD</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:16px;font-weight:600;color:var(--text);">生徒の学習状況</div>
+          <div style="font-size:11px;color:var(--sub);" id="t-dash-test"></div>
+        </div>
+      </div>
+      <div id="t-dash-filter-bar" style="background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 16px;overflow-x:auto;display:flex;gap:8px;"></div>
+      <div style="padding:12px 14px 80px"><div id="t-dash-list"></div></div>
+    </div>
+    <!-- ROOM: テスト範囲登録（クラス選択） -->
+    <div id="t-room-register" style="display:none">
+      <div style="background:#fff;padding:14px 16px;border-bottom:1px solid var(--border);">
+        <div style="font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:6px;">テストを選択</div>
+        <select id="t-test-select" class="fsel" style="font-size:15px;font-weight:600;color:var(--blue);"></select>
+      </div>
+      <div class="page-title">クラスを選択して範囲を登録</div>
+      <div class="t-class-card">
+        <div id="t-class-list"></div>
+      </div>
+    </div>
+    <!-- ROOM: CLASS -->
+    <div id="t-room-class" style="display:none">
+      <div class="class-info-bar" id="t-class-info"></div>
+      <div class="subj-tabs" id="t-stabs"></div>
+      <div class="range-list" id="t-range-list"></div>
+      <div class="add-range-form">
+        <div class="afc" style="flex:1;min-width:140px"><label>範囲名</label><input type="text" id="t-matname" placeholder="例：ワーク p.1-20" list="t-presets"><datalist id="t-presets"><option value="ワーク"><option value="授業プリント"><option value="ノート"><option value="白プリント"><option value="問題集"></datalist></div>
+        <div class="afc" style="flex:0 0 72px"><label>配点</label><input type="number" id="t-pts" placeholder="20" min="1" max="200"></div>
+        <button class="btn-add" id="t-add-mat">+ 追加</button>
+      </div>
+    </div>
+    <!-- ROOM: STUDENTS -->
+    <div id="t-room-students" style="display:none">
+      <div id="t-stu-filter-bar" style="background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 16px;overflow-x:auto;display:flex;gap:8px;"></div>
+      <div style="padding:12px 14px 80px"><div id="student-list"></div></div>
+    </div>
+    <div id="t-room-student-detail" style="display:none">
+    <div id="t-stu-detail-content" style="padding:14px 14px 80px;"></div>
+    </div>
+    <!-- ROOM: 生徒登録 -->
+    <!-- ROOM: CLASS REG -->
+    <div id="t-room-class-reg" style="display:none">
+      <div class="t-class-card">
+        <div id="cr-class-list"></div>
+        <div style="padding:16px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">新しいクラスを追加</div>
+          <div class="add-form-row">
+            <div class="add-form-col" style="flex:0 0 130px">
+              <label>学年</label>
+              <select id="cr-grade" class="fsel" style="margin:0">
+                <option value="">選択</option>
+                <option value="中1">中学1年</option>
+                <option value="中2">中学2年</option>
+                <option value="中3">中学3年</option>
+              </select>
+            </div>
+            <div class="add-form-col">
+              <label>中学校名</label>
+              <input type="text" id="cr-school" placeholder="例：○○中学校" class="fi" style="margin:0">
+            </div>
+          </div>
+          <div class="add-form-err" id="cr-err" style="display:none">学校名と学年を入力してください</div>
+          <button class="btn-lg" id="cr-add-btn" style="margin-top:12px;">＋ クラスを追加</button>
+        </div>
+      </div>
+    </div>
+    <div id="t-room-stu-reg" style="display:none">
+      <div style="padding:14px 14px 80px;">
+        <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">新規登録</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div>
+              <div style="font-size:11px;color:var(--sub);margin-bottom:4px;">ID</div>
+              <input class="fi" id="sr-id" type="text" placeholder="" style="margin-bottom:0" autocomplete="off">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--sub);margin-bottom:4px;">パスワード</div>
+              <input class="fi" id="sr-pw" type="text" placeholder="" style="margin-bottom:0" autocomplete="off">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--sub);margin-bottom:4px;">クラス</div>
+              <select class="fsel" id="sr-group" style="margin-bottom:0"></select>
+            </div>
+          </div>
+          <div class="ferr" id="sr-err" style="display:none;color:var(--bad);font-size:11px;margin-top:8px;"></div>
+          <button class="btn-lg" id="sr-add" style="margin-top:12px;">＋ 登録</button>
+        </div>
+        <div id="sr-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT -->
+<div id="goal-setup" class="screen">
+  <div class="goal-inner">
+    <h2 class="goal-title">目標を決めよう</h2>
+    <p class="goal-sub">今回の定期テストで<br>何点を目指しますか？</p>
+    <div class="goal-input-row">
+      <input class="goal-input" id="goal-input" type="number" min="0" max="500" placeholder="400">
+      <span class="goal-unit">点</span>
+    </div>
+    <div class="goal-max-lbl" id="goal-max-lbl">/ 500点満点</div>
+    <div class="goal-err" id="goal-err"></div>
+    <button class="goal-btn" id="goal-btn">目標を決定する →</button>
+  </div>
+</div>
+<div id="student" class="screen">
+  <div class="hd">
+    <div>
+      <div class="hd-logo" id="s-testname"></div>
+    </div>
+    <div class="hd-right">
+      <span class="hd-name" id="s-name-hd"></span>
+      <button class="hd-btn" id="s-logout">ログアウト</button>
+    </div>
+  </div>
+  <div class="page-wrap">
+    <div class="score-banner">
+      <div class="score-target-card" id="score-target-card">
+        <!-- 表示モード -->
+        <div id="s-target-view">
+          <div class="stv-row">
+            <div class="stv-left">
+              <div class="stv-lbl">目標点</div>
+              <div class="stv-score">
+                <span class="stv-num" id="s-target-display">--</span>
+                <span class="stv-unit">点</span>
+              </div>
+            </div>
+            <div class="stv-mid" id="s-target-diff-wrap" style="display:none">
+              <div class="stv-diff-lbl" id="s-target-diff-lbl">目標まで</div>
+              <div class="stv-diff-num" id="s-target-diff-num">--</div>
+              <div class="stv-diff-unit">点</div>
+            </div>
+            <button class="stv-btn" id="s-target-edit-btn">目標を変更</button>
+          </div>
+        </div>
+        <!-- 編集モード -->
+        <div id="s-target-edit" style="display:none">
+          <div class="ste-row">
+            <div class="ste-lbl">目標点を設定</div>
+            <div class="ste-input-wrap">
+              <input class="ste-input" id="s-target-input" type="number" min="0" max="500" placeholder="400">
+              <span class="ste-unit">点</span>
+            </div>
+            <button class="ste-btn" id="s-target-save-btn">決定</button>
+          </div>
+        </div>
+      </div>
+      <div class="score-lbl">予想得点</div>
+      <div class="sim-pending" id="sim-pending">
+        <div class="sim-bars"><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span></div>
+        <div class="sim-label">分析中</div>
+        <div class="sim-sub">すべての学習状況を選択してください</div>
+      </div>
+      <div class="score-main-row" id="score-main-wrap">
+        <div class="score-main">
+          <span class="score-num" id="s-score">0</span>
+          <span class="score-num-unit">点</span>
+          <span class="score-out-of" id="s-max">/ 500点</span>
+        </div>
+        <div id="s-rank-wrap" class="s-rank-wrap" style="display:none;">
+          <div class="s-rank-lbl">校舎内ランキング</div>
+          <div class="s-rank-val">
+            <span class="s-rank-num" id="s-rank-pos">--</span><span class="s-rank-slash">/</span><span class="s-rank-total" id="s-rank-total">--</span><span class="s-rank-unit">位</span>
+          </div>
+        </div>
+      </div>
+      <div class="score-range" id="s-range" style="display:none"></div>
+      <div class="score-disclaimer">あくまでシミュレーション得点です。<br>実際にこの点数になるわけではありません。</div>
+      <span id="s-target-diff" style="display:none"></span>
+
+    </div>
+    <div class="cal-card" id="s-cal-card" style="display:none"></div>
+    <div class="s-section-title-wrap">
+      <div class="s-section-title">完成度チェック</div>
+      <div class="s-section-sub">テスト範囲表の内容を、1つずつ仕上げていこう。各項目が今どのレベルまでできているかを記録しましょう。</div>
+    </div>
+    <div id="s-cards"></div>
+  </div>
+</div>
+
+<script>// ── データストレージ（Firestore + メモリキャッシュ） ──
+const _store = {};
+let _dbReady = false;
+
+function lsGet(k){ return _store[k] || null; }
+function lsSet(k, v){
+  _store[k] = v;
+  if(!_dbReady) return;
+  if(_db){
+    const safe = k.replace(/[^a-zA-Z0-9_-]/g,'_');
+    _db.collection('appdata').doc(safe).set({v}).catch(e=>console.warn('Firestore write error:',e));
+  } else {
+    try{ localStorage.setItem(k, v); }catch(e){}
+  }
+}
+function lsKeys(){ return Object.keys(_store); }
+
+async function loadAllFromFirestore(){
+  // まずlocalStorageからロード（オフラインでも即起動）
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);if(k)_store[k]=localStorage.getItem(k);
+    }
+  }catch(e){}
+
+  // Firebaseが使える場合はFirestoreからも読み込む（3秒タイムアウト）
+  if(_db){
+    try{
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
+      const fetch=_db.collection('appdata').get().then(snap=>{
+        snap.forEach(doc=>{_store[doc.id]=doc.data().v;});
+        console.log('Firestore: データ読み込み完了');
+      });
+      await Promise.race([fetch,timeout]);
+    }catch(e){
+      console.warn('Firestore load skipped:', e.message);
+    }
+  }
+
+  _dbReady=true;
+  document.getElementById('loading-screen').style.display='none';
+  initLoginUI();
+}
+
+const SUBJECTS=['英語','数学','国語','理科','社会'];
+const TESTS=[
+  {id:'g1-chukan',  name:'1学期中間テスト'},
+  {id:'g1-kimatsu', name:'1学期期末テスト'},
+  {id:'g2-chukan',  name:'2学期中間テスト'},
+  {id:'g2-kimatsu', name:'2学期期末テスト'},
+  {id:'gakunenmatsu',name:'学年末テスト'}
+];
+function defaultTD(){
+  const tests={};TESTS.forEach(t=>tests[t.id]={name:t.name,testDate:'',mats:[]});
+  return{pin:'1234',currentTestId:'g1-chukan',groups:[],tests:tests,students:[]};
+}
+const PRESETS=[
+  {v:5,  symbol:'×', label:'まだ手をつけていない',                        color:'#dc2626', bg:'#fef2f2', bd:'#fca5a5'},
+  {v:40, symbol:'△', label:'とりあえず1周しただけ',                       color:'#d97706', bg:'#fffbeb', bd:'#fcd34d'},
+  {v:60, symbol:'○', label:'くりかえし解いて基本・標準問題は解ける',        color:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
+  {v:80, symbol:'◎', label:'くりかえし解いて応用問題も解ける',              color:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
+  {v:95, symbol:'★', label:'何も見ずにほぼ完ぺきにできることを確認した',    color:'#005cac', bg:'#eef5fc', bd:'#cce0f5'}
+];
+function scoreColor(pct,allSelected){
+  if(!allSelected)return'#94a3b8';
+  if(pct<50)return'#dc2626';
+  if(pct<60)return'#facc15';
+  if(pct<70)return'#84cc16';
+  if(pct<80)return'#16a34a';
+  if(pct<90)return'#005cac';
+  return'#003d73';
+}
+function levelStyle(lv){if(!lv)return{color:'#94a3b8',bg:'#fff',bd:'#d0d5dd'};const p=PRESETS.find(p=>p.v===lv);return p?p:{color:'#94a3b8',bg:'#f1f5f9',bd:'#e2e8f0'};}
+function predScore(p,l){return l?p*l/100:0;}
+function levelBadgeText(lv){if(!lv)return'未選択';const p=PRESETS.find(p=>p.v===lv);return p?p.label:lv+'%';}
+function levelBadgeHtml(lv){if(!lv)return'未選択';const p=PRESETS.find(p=>p.v===lv);return p?`${p.symbol} ${p.label}`:lv+'%';}
+function levelLabel(l){if(!l)return'未選択';const p=PRESETS.find(p=>p.v===l);return p?`${p.symbol} ${p.label}`:l+'%';}
+function timeAgo(iso){
+  if(!iso)return '未更新';
+  const diff=Math.floor((Date.now()-new Date(iso).getTime())/1000);
+  if(diff<60)return 'たった今';
+  if(diff<3600)return Math.floor(diff/60)+'分前';
+  if(diff<86400)return Math.floor(diff/3600)+'時間前';
+  if(diff<86400*7)return Math.floor(diff/86400)+'日前';
+  const d=new Date(iso);return (d.getMonth()+1)+'月'+d.getDate()+'日';
+}
+function gLabel(g){if(!g)return'';return (g.grade||'')+(g.school?' '+g.school:'');}
+function gBadgeHtml(g){
+  if(!g)return'';
+  const grade=g.grade||'';const school=g.school||'';
+  return '<span class="grade-pill">'+esc(grade)+'</span> '+esc(school);
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function flash(el){el.style.borderColor='var(--bad)';el.focus();setTimeout(()=>el.style.borderColor='',900);}
+function showTick(id){const el=document.getElementById(id);el.classList.add('on');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),2000);}
+function getTD(){
+  let td;try{td=JSON.parse(lsGet('td')||'null');}catch(e){td=null;}
+  if(!td){td=defaultTD();saveTD(td);return td;}
+  if(!td.tests){
+    const tests={};TESTS.forEach(t=>tests[t.id]={name:t.name,testDate:'',mats:[]});
+    if(td.mats)tests['g1-chukan'].mats=td.mats;
+    if(td.groups)td.groups.forEach(g=>{if(g.testDate&&!tests['g1-chukan'].testDate)tests['g1-chukan'].testDate=g.testDate;});
+    td.tests=tests;delete td.mats;
+  }
+  if(!td.currentTestId)td.currentTestId='g1-chukan';
+  if(!td.students)td.students=[];
+  if(!td.groups)td.groups=[];
+  return td;
+}
+function saveTD(d){lsSet('td',JSON.stringify(d));}
+function getCurrentTest(){const td=getTD();return td.tests[td.currentTestId]||td.tests['g1-chukan'];}
+function getCurrentMats(){return getCurrentTest().mats;}
+function findStudentById(id){return(getTD().students||[]).find(s=>s.id===id);}
+function getSD(n){try{return JSON.parse(lsGet('sd_'+n))||{gauge:{},groupId:null};}catch(e){return{gauge:{},groupId:null};}}
+function saveSD(n,d){lsSet('sd_'+n,JSON.stringify(d));}
+function getAllStudents(){
+  const td=getTD();
+  if(td.students&&td.students.length)return td.students.map(s=>s.id);
+  return getAllStudentsLegacy();
+}
+function getAllStudentsLegacy(){const l=[];for(const k of lsKeys()){if(k&&k.startsWith('sd_'))l.push(k.slice(3));}return l.sort();}
+function getGauge(sd,id){
+  const tid=getTD().currentTestId;
+  if(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].gauge&&sd.byTest[tid].gauge[id]!=null)return sd.byTest[tid].gauge[id];
+  if(sd.gauge&&sd.gauge[id]!=null)return sd.gauge[id];
+  return null;
+}
+function subjectSpread(mats,sd){if(!mats.length)return 0;const mx=mats.reduce((s,m)=>s+m.points,0);const av=mats.reduce((s,m)=>s+getGauge(sd,m.id),0)/mats.length;return Math.round(mx*.09*Math.sin(Math.PI*av/100));}
+let studentName=null,tSubject=SUBJECTS[0],sOpenSubj=null,tOpenStu=null,tGroupId=null,tStudentFilter=null,tCurrentStuDetail=null;
+
+// wiring
+document.getElementById('gear-btn').addEventListener('click',openPinModal);
+document.getElementById('modal-pin').addEventListener('keydown',e=>{if(e.key==='Enter')submitPin();});
+document.getElementById('btn-cancel').addEventListener('click',closePinModal);
+document.getElementById('btn-confirm').addEventListener('click',submitPin);
+document.getElementById('id-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pw-input').focus();});
+document.getElementById('pw-input').addEventListener('keydown',e=>{if(e.key==='Enter')doStudentLogin();});
+document.getElementById('btn-login').addEventListener('click',doStudentLogin);
+document.getElementById('t-nav-stu-reg').addEventListener('click',()=>enterRoom('stu-reg'));
+document.getElementById('t-nav-class-reg').addEventListener('click',()=>enterRoom('class-reg'));
+document.getElementById('cr-add-btn').addEventListener('click',addClassFromCR);
+
+document.getElementById('sr-add').addEventListener('click',addStudent);
+document.getElementById('t-logout').addEventListener('click',logout);
+document.getElementById('t-pw-change').addEventListener('click',()=>{
+  document.getElementById('pw-old').value='';
+  document.getElementById('pw-new1').value='';
+  document.getElementById('pw-new2').value='';
+  document.getElementById('pw-change-err').textContent='';
+  document.getElementById('pw-change-modal').style.display='flex';
+  document.getElementById('pw-old').focus();
+});
+document.getElementById('pw-change-cancel').addEventListener('click',()=>{
+  document.getElementById('pw-change-modal').style.display='none';
+});
+document.getElementById('pw-change-ok').addEventListener('click',changePIN);
+document.getElementById('s-logout').addEventListener('click',logout);
+document.getElementById('goal-btn').addEventListener('click',confirmGoal);
+document.getElementById('goal-input').addEventListener('keydown',e=>{if(e.key==='Enter')confirmGoal();});
+document.getElementById('s-target-edit-btn').addEventListener('click',()=>{
+  document.getElementById('s-target-view').style.display='none';
+  document.getElementById('s-target-edit').style.display='';
+  document.getElementById('s-target-input').focus();
+});
+document.getElementById('s-target-save-btn').addEventListener('click',saveTargetAndClose);
+document.getElementById('s-target-input').addEventListener('keydown',e=>{if(e.key==='Enter')saveTargetAndClose();});
+
+document.getElementById('t-nav-register').addEventListener('click',()=>enterRoom('register'));
+document.getElementById('t-add-mat').addEventListener('click',tAddMat);
+document.getElementById('t-matname').addEventListener('keydown',e=>{if(e.key==='Enter')tAddMat();});
+document.getElementById('t-pts').addEventListener('keydown',e=>{if(e.key==='Enter')tAddMat();});
+// settings removed
+
+function changePIN(){
+  const old=document.getElementById('pw-old').value;
+  const n1=document.getElementById('pw-new1').value;
+  const n2=document.getElementById('pw-new2').value;
+  const err=document.getElementById('pw-change-err');
+  const td=getTD();
+  if(old!==td.pin){err.textContent='現在のパスワードが違います';return;}
+  if(!n1||n1.length<4){err.textContent='新しいパスワードは4文字以上で入力してください';return;}
+  if(n1!==n2){err.textContent='確認用パスワードが一致しません';return;}
+  td.pin=n1;saveTD(td);
+  document.getElementById('pw-change-modal').style.display='none';
+  alert('パスワードを変更しました');
+}
+function openPinModal(){document.getElementById('modal-pin').value='';document.getElementById('modal-err').classList.remove('on');document.getElementById('pin-modal').style.display='flex';setTimeout(()=>document.getElementById('modal-pin').focus(),50);}
+function closePinModal(){document.getElementById('pin-modal').style.display='none';}
+function submitPin(){const td=getTD(),v=document.getElementById('modal-pin').value;if(v!==td.pin){document.getElementById('modal-err').classList.add('on');return;}closePinModal();document.getElementById('login').style.display='none';showTeacher();}
+function initLoginUI(){const idInp=document.getElementById('id-input');if(idInp){idInp.value='';document.getElementById('pw-input').value='';document.getElementById('login-err').classList.remove('on');}}
+function doStudentLogin(){
+  const id=document.getElementById('id-input').value.trim();
+  const pw=document.getElementById('pw-input').value;
+  const errEl=document.getElementById('login-err');
+  const stu=findStudentById(id);
+  if(!stu||stu.password!==pw){errEl.classList.add('on');return;}
+  errEl.classList.remove('on');
+  studentName=stu.id;
+  const sd=getSD(studentName);sd.groupId=stu.groupId;sd.displayName=stu.name;saveSD(studentName,sd);
+  document.getElementById('login').style.display='none';
+  const newSd=getSD(studentName);const tid2=getTD().currentTestId;const hasT=newSd.byTest&&newSd.byTest[tid2]&&newSd.byTest[tid2].target;
+  if(!hasT){showGoalSetup();}else{showStudent();}
+}
+function logout(){studentName=null;sOpenSubj=null;tOpenStu=null;document.getElementById('teacher').className='screen';document.getElementById('student').className='screen';document.getElementById('goal-setup').className='screen';document.getElementById('goal-setup').style.display='none';const l=document.getElementById('login');if(l){l.style.display='';initLoginUI();}else{location.reload();}}
+
+function showTeacher(){document.getElementById('teacher').className='screen on';document.getElementById('student').className='screen';const td=getTD();tSubject=SUBJECTS[0];tOpenStu=null;tGroupId=null;showTHome();}
+function setHdBack(backLabel,fn,pageTitle){
+  const left=document.getElementById('t-hd-left');
+  const center=document.getElementById('t-hd-center');
+  left.innerHTML=`<button class="hd-back" id="t-hd-back-btn">‹ ${backLabel}</button>`;
+  if(center)center.innerHTML=pageTitle?`<span class="hd-page-title">${pageTitle}</span>`:'';
+  document.getElementById('t-hd-back-btn').addEventListener('click',fn);
+}
+function clearHdBack(){
+  const left=document.getElementById('t-hd-left');
+  const center=document.getElementById('t-hd-center');
+  left.innerHTML=`<div class="hd-logo"><small>TEACHER MODE</small></div>`;
+  if(center)center.innerHTML='';
+}
+function refreshTestSelector(){
+  const sel=document.getElementById('t-test-select');if(!sel)return;
+  const td=getTD();
+  sel.innerHTML=TESTS.map(t=>`<option value="${t.id}"${t.id===td.currentTestId?' selected':''}>${t.name}</option>`).join('');
+  sel.value=td.currentTestId;
+}
+// テスト切替のリスナー（直接登録）
+document.body.addEventListener('change',function(e){
+  if(e.target&&e.target.id==='t-test-select'){
+    const td=getTD();td.currentTestId=e.target.value;saveTD(td);
+    renderClassList();
+    refreshTestSelector();
+  }
+});
+function renderDashboard(){
+  const td=getTD();
+  const tEl=document.getElementById('t-dash-test');if(tEl)tEl.textContent=getCurrentTest().name;
+  renderDashFilterBar();renderDashList();
+}
+function renderDashFilterBar(){
+  const bar=document.getElementById('t-dash-filter-bar');if(!bar)return;
+  const td=getTD();const groups=td.groups||[];const sts=getAllStudents();
+  const counts={};sts.forEach(n=>{const sd=getSD(n);const gid=sd.groupId||'none';counts[gid]=(counts[gid]||0)+1;});
+  bar.innerHTML='';
+  const makeBtn=(label,count,filterVal)=>{
+    const btn=document.createElement('button');
+    const isActive=filterVal===tStudentFilter||(filterVal===null&&tStudentFilter===null);
+    btn.className='stu-filter-btn'+(isActive?' active':'');
+    btn.innerHTML=label+`<span class="stu-filter-count">${count}</span>`;
+    btn.addEventListener('click',()=>{tStudentFilter=filterVal;renderDashboard();});
+    bar.appendChild(btn);
+  };
+  makeBtn('全員',sts.length,null);
+  groups.forEach(g=>{const c=counts[g.id]||0;if(c===0)return;makeBtn(gBadgeHtml(g),c,g.id);});
+}
+function getStudentSubjScores(sd){
+  const gid=sd.groupId;
+  const out={};let grandTotal=0,grandMax=0;let allSelAll=true;
+  SUBJECTS.forEach(subj=>{
+    const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:true));
+    let tot=0,mx=0;
+    const allSel=mats.length>0&&mats.every(m=>getGauge(sd,m.id)!==null);
+    mats.forEach(m=>{mx+=m.points;tot+=predScore(m.points,getGauge(sd,m.id));});
+    if(mats.length>0&&!allSel)allSelAll=false;
+    out[subj]={score:Math.round(tot),max:mx,allSel,hasMats:mats.length>0};
+    grandTotal+=tot;grandMax+=mx;
+  });
+  const allMats=getCurrentMats().filter(m=>gid?m.groupId===gid:true);
+  const allSel=allMats.length>0&&allMats.every(m=>getGauge(sd,m.id)!==null);
+  return{subjects:out,total:Math.round(grandTotal),max:grandMax,allSel};
+}
+function renderDashList(){
+  const el=document.getElementById('t-dash-list');if(!el)return;
+  const allSts=getAllStudents();const td=getTD();
+  const sts=tStudentFilter===null?allSts:allSts.filter(n=>{const sd=getSD(n);return sd.groupId===tStudentFilter;});
+  if(!sts.length){el.innerHTML='<div class="empty-msg">'+(tStudentFilter?'このクラスの生徒はまだいません':'まだ生徒が登録されていません')+'</div>';return;}
+  el.innerHTML='';
+  const groups=td.groups||[];
+  const grouped={};
+  if(tStudentFilter===null){sts.forEach(n=>{const gid=getSD(n).groupId;const k=gid||'none';if(!grouped[k])grouped[k]=[];grouped[k].push(n);});}
+  else{grouped[tStudentFilter]=sts;}
+  const keys=tStudentFilter!==null?[tStudentFilter]:[...groups.map(g=>g.id).filter(id=>grouped[id]?.length),...(grouped['none']?.length?['none']:[])];
+  const subjShort={'英語':'英','数学':'数','国語':'国','理科':'理','社会':'社'};
+  keys.forEach(key=>{
+    const names=grouped[key]||[];names.sort((a,b)=>a.localeCompare(b,'ja'));
+    const section=document.createElement('div');section.className='dash-section';
+    if(key!=='none'){
+      const g=groups.find(g=>g.id===key);
+      if(g){
+        const gradeMap={'中1':'中1','中2':'中2','中3':'中3'};
+        const hd=document.createElement('div');hd.className='dash-section-hd';
+        hd.innerHTML=`<span class="dash-grade-pill">${esc(gradeMap[g.grade]||g.grade)}</span><span class="dash-school">${esc(g.school||'')}</span><span class="dash-count">${names.length}名</span>`;
+        section.appendChild(hd);
+      }
+    }
+    // テーブルヘッダー
+    const tbl=document.createElement('div');tbl.className='dash-table';
+    tbl.innerHTML=`<div class="dash-tr dash-thead"><div class="dash-td-name">生徒ID</div><div class="dash-td-total">合計</div>${SUBJECTS.map(s=>`<div class="dash-td-subj">${subjShort[s]}</div>`).join('')}<div class="dash-td-time">更新</div></div>`;
+    names.forEach(name=>{
+      const sd=getSD(name);const scores=getStudentSubjScores(sd);
+      const tid=td.currentTestId;
+      const lastU=sd.byTest&&sd.byTest[tid]?sd.byTest[tid].lastUpdated:sd.lastUpdated;
+      const ago=timeAgo(lastU);
+      const isFresh=lastU&&(Date.now()-new Date(lastU).getTime())<86400000;
+      const totalColor=scores.allSel?scoreColor(scores.max?scores.total/scores.max*100:0,true):'#9ca3af';
+      const row=document.createElement('div');row.className='dash-tr dash-trow';
+      row.style.cursor='pointer';
+      const subjCells=SUBJECTS.map(subj=>{
+        const sv=scores.subjects[subj];
+        if(!sv||!sv.hasMats)return`<div class="dash-td-subj"><span class="dash-subj-val dash-na">—</span></div>`;
+        const col=sv.allSel?scoreColor(sv.max?sv.score/sv.max*100:0,true):'#9ca3af';
+        return`<div class="dash-td-subj"><span class="dash-subj-val" style="background:${col}">${sv.allSel?sv.score:'?'}</span></div>`;
+      }).join('');
+      row.innerHTML=`<div class="dash-td-name"><span class="dash-name">${esc((findStudentById(name)||{}).name||name)}</span></div><div class="dash-td-total"><span class="dash-total-val" style="color:${totalColor}">${scores.allSel?scores.total:'--'}</span><span class="dash-total-max"> /500</span></div>${subjCells}<div class="dash-td-time"><span class="dash-time${isFresh?' fresh':''}">${ago}</span></div>`;
+      row.addEventListener('click',()=>enterStudentDetail(name));
+      tbl.appendChild(row);
+    });
+    section.appendChild(tbl);
+    el.appendChild(section);
+  });
+}
+function hideAllRooms(){
+  ['t-room-register','t-room-class-reg','t-room-stu-reg','t-room-student-detail','t-room-students'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+}
+function showTHome(){
+  hideAllRooms();
+  document.getElementById('t-home').style.display='';
+  clearHdBack();
+  renderDashboard();
+  clearHdBack();
+  document.getElementById('t-home').style.display='';
+  ['register','class','students'].forEach(r=>{const el=document.getElementById('t-room-'+r);if(el)el.style.display='none';});
+  const td=getTD();const groups=td.groups||[];
+  const matCount=getCurrentMats().length;
+  document.getElementById('t-reg-meta').textContent=groups.length?groups.length+'クラス / '+matCount+'件':'クラス未登録';
+}
+function renderClassReg(){
+  const td=getTD();const groups=(td.groups||[]).slice();
+  const gradeOrder={'中1':1,'中2':2,'中3':3};
+  groups.sort((a,b)=>(gradeOrder[a.grade]||9)-(gradeOrder[b.grade]||9)||(a.school||'').localeCompare(b.school||'','ja'));
+  const el=document.getElementById('cr-class-list');if(!el)return;
+  if(!groups.length){el.innerHTML='<div class="empty-msg">まだクラスが登録されていません</div>';return;}
+  el.innerHTML='';
+  const gradeColors={'中1':'var(--blue)','中2':'var(--blue)','中3':'var(--blue)'};
+  groups.forEach(g=>{
+    const col=gradeColors[g.grade]||'var(--blue)';
+    const stuCount=(td.students||[]).filter(s=>s.groupId==g.id).length;
+    const card=document.createElement('div');card.className='cr-class-card';
+    card.innerHTML=`
+      <div class="cr-card-left" style="background:${col}">
+        <span class="cr-grade-lbl">${esc(g.grade)}</span>
+      </div>
+      <div class="cr-card-body">
+        <div class="cr-school-name">${esc(g.school||'')}</div>
+        <div class="cr-stu-count">${stuCount}名</div>
+      </div>
+      <button class="cr-del-btn cr-del" data-id="${g.id}">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>`;
+    el.appendChild(card);
+  });
+  el.querySelectorAll('.cr-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const td2=getTD();td2.groups=(td2.groups||[]).filter(g=>g.id!=btn.dataset.id);saveTD(td2);renderClassReg();renderStudentRegistration();
+    });
+  });
+}
+function addClassFromCR(){
+  const school=document.getElementById('cr-school').value.trim();
+  const grade=document.getElementById('cr-grade').value;
+  const err=document.getElementById('cr-err');
+  if(!school||!grade){err.style.display='block';return;}
+  err.style.display='none';
+  const td=getTD();if(!td.groups)td.groups=[];
+  const id=Date.now();
+  td.groups.push({id,school,grade,label:grade+' '+school});
+  saveTD(td);
+  document.getElementById('cr-school').value='';
+  document.getElementById('cr-grade').value='';
+  renderClassReg();
+}
+function renderClassList(){
+  const td=getTD();const groups=td.groups||[];
+  const cl=document.getElementById('t-class-list');
+  cl.innerHTML='';
+  if(!groups.length){cl.innerHTML='<div class="empty-msg"><b>クラスがありません</b>「新しいクラスを追加」から始めてください</div>';return;}
+  groups.forEach(g=>{
+    const mats=getCurrentMats().filter(m=>m.groupId===g.id);
+    const subjs=[...new Set(mats.map(m=>m.subject))];
+    const item=document.createElement('div');item.className='t-class-item';
+    item.innerHTML=`<div class="t-class-grade">${esc(g.grade||'')}</div><div class="t-class-info"><div class="t-class-school">${esc(g.school||g.label)}</div><div class="t-class-meta">${mats.length?mats.length+'件登録 — '+subjs.join('・'):'範囲未登録'}</div></div><span class="t-class-arrow">›</span>`;
+    item.addEventListener('click',()=>enterClassRoom(g.id));
+    cl.appendChild(item);
+  });
+}
+function enterRoom(room){
+  document.getElementById('t-home').style.display='none';
+  hideAllRooms();
+  const target=document.getElementById('t-room-'+room);
+  if(target)target.style.display='';
+  const hdLabel='ホーム';
+  const hdTitle=room==='register'?'テスト範囲登録':(room==='stu-reg'?'生徒登録':(room==='class-reg'?'クラス登録':''));
+  setHdBack(hdLabel,showTHome,hdTitle);
+  if(room==='register'){refreshTestSelector();renderClassList();}
+  if(room==='stu-reg'){renderStudentRegistration();}
+  if(room==='class-reg'){renderClassReg();}
+}
+function enterClassRoom(gid){
+  tGroupId=gid;const td=getTD();const g=td.groups.find(g=>g.id===gid);
+  ['register','students'].forEach(r=>{const el=document.getElementById('t-room-'+r);if(el)el.style.display='none';});
+  document.getElementById('t-room-class').style.display='';
+  setHdBack('戻る',()=>enterRoom('register'),'テスト範囲登録');
+  const info=document.getElementById('t-class-info');
+  info.innerHTML=`<div class="class-header-top"><div class="class-header-name">${gBadgeHtml(g)}</div><button class="class-header-del" id="t-del-class">削除</button></div><div class="class-date-section"><span class="class-date-section-lbl">テスト日</span><input type="date" id="t-test-date" class="class-date-pick" value="${g.testDate||''}"><span class="class-date-saved-lbl" id="t-date-saved">保存 ✓</span></div>`;
+  document.getElementById('t-test-date').addEventListener('change',function(){saveTestDate(gid,this.value);});
+  document.getElementById('t-del-class').addEventListener('click',()=>deleteClass(gid));
+  renderTTabs();renderTMats();
+}
+function deleteClass(gid){const td=getTD();td.groups=td.groups.filter(g=>g.id!==gid);Object.values(td.tests).forEach(t=>{t.mats=t.mats.filter(m=>m.groupId!==gid);});saveTD(td);enterRoom('register');}
+
+let tNextId=Date.now();
+function renderTTabs(){const td=getTD(),el=document.getElementById('t-stabs');el.innerHTML='';SUBJECTS.forEach(s=>{const has=getCurrentMats().some(m=>m.subject===s&&m.groupId===tGroupId);const b=document.createElement('button');b.className='subj-tab'+(s===tSubject?' active':'');b.textContent=s;b.addEventListener('click',()=>{tSubject=s;renderTTabs();renderTMats();});el.appendChild(b);});}
+function renderTMats(){
+  const td=getTD(),el=document.getElementById('t-range-list');
+  const mats=getCurrentMats().filter(m=>m.subject===tSubject&&m.groupId===tGroupId);
+  if(!mats.length){el.innerHTML='<div class="range-empty">「'+tSubject+'」の範囲がまだありません</div>';return;}
+  el.innerHTML='';
+  mats.forEach((m,i)=>{
+    const row=document.createElement('div');row.className='range-item';
+    row.innerHTML=`<span class="range-idx">範囲${i+1}</span><span class="range-nm">${esc(m.name)}</span><div class="range-pts-wrap"><span class="range-pts-lbl">配点</span><input class="range-pts-input" type="number" value="${m.points}" min="1" max="999"><span class="range-pts-unit">点</span></div><button class="range-del">×</button>`;
+    const inp=row.querySelector('.range-pts-input');
+    inp.addEventListener('change',function(){
+      const v=parseInt(this.value);
+      if(!v||v<1){this.value=m.points;return;}
+      const td2=getTD();const test=td2.tests[td2.currentTestId];const mat=test.mats.find(x=>x.id===m.id);
+      if(mat){mat.points=v;saveTD(td2);updateTTotal();}
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')inp.blur();});
+    row.querySelector('.range-del').addEventListener('click',()=>tDelMat(m.id));
+    el.appendChild(row);
+  });
+  // 合計行
+  const totalRow=document.createElement('div');totalRow.className='range-total-row';totalRow.id='t-total-row';
+  el.appendChild(totalRow);
+  updateTTotal();
+}
+function updateTTotal(){
+  const el=document.getElementById('t-total-row');if(!el)return;
+  // 入力中の値も含めてDOM上の値を合計
+  const inputs=document.querySelectorAll('.range-pts-input');
+  let sum=0;inputs.forEach(inp=>{const v=parseInt(inp.value)||0;sum+=v;});
+  el.innerHTML=`<span style="flex:1"></span><span style="font-size:11px;color:var(--sub)">合計</span><span style="font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:var(--blue);margin:0 4px">${sum}</span><span style="font-size:11px;color:var(--sub);margin-right:30px">点</span>`;
+}
+function tAddMat(){const nm=document.getElementById('t-matname').value.trim(),pt=parseInt(document.getElementById('t-pts').value);if(!nm){flash(document.getElementById('t-matname'));return;}if(!pt||pt<1){flash(document.getElementById('t-pts'));return;}const td=getTD();const test=td.tests[td.currentTestId];test.mats.push({id:tNextId++,groupId:tGroupId,subject:tSubject,name:nm,points:pt});saveTD(td);document.getElementById('t-matname').value='';document.getElementById('t-pts').value='';renderTTabs();renderTMats();document.getElementById('t-matname').focus();}
+function tDelMat(id){const td=getTD();const test=td.tests[td.currentTestId];test.mats=test.mats.filter(m=>m.id!==id);saveTD(td);renderTTabs();renderTMats();}
+
+function saveTestDate(gid,date){
+  const td=getTD();const g=td.groups.find(g=>g.id===gid);if(!g)return;
+  g.testDate=date;saveTD(td);
+  const el=document.getElementById('t-date-saved');if(el){el.classList.add('on');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),2000);}
+}
+
+function renderCountdown(){
+  const el=document.getElementById('s-cal-card');if(!el)return;
+  const sd=getSD(studentName);const td=getTD();
+  const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);
+  if(!g||!g.testDate){el.style.display='none';return;}
+  el.style.display='';
+
+  const today=new Date();today.setHours(0,0,0,0);
+  const testD=new Date(g.testDate);testD.setHours(0,0,0,0);
+  const diffDays=Math.round((testD-today)/(864e5));
+  const MN=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const DOW=['日','月','火','水','木','金','土'];
+
+  let cdCls='cal-countdown',cdTxt='';
+  if(diffDays<0){cdTxt='テスト終了';cdCls='cal-countdown';}
+  else if(diffDays===0){cdTxt='今日テスト！';cdCls='cal-countdown urgent';}
+  else if(diffDays<=3){cdTxt='あと'+diffDays+'日🔥';cdCls='cal-countdown urgent';}
+  else if(diffDays<=7){cdTxt='あと'+diffDays+'日⚡';cdCls='cal-countdown warning';}
+  else{cdTxt='あと'+diffDays+'日';}
+
+  function makeMonth(year,month){
+    const first=new Date(year,month,1).getDay();
+    const last=new Date(year,month+1,0).getDate();
+    let rows='';
+    DOW.forEach((d,i)=>{rows+=`<div class="cal-dow${i===0?' sun':i===6?' sat':''}">${d}</div>`;});
+    let col=first;
+    for(let i=0;i<first;i++)rows+='<div></div>';
+    for(let d=1;d<=last;d++){
+      const cur=new Date(year,month,d);
+      const isToday=cur.getTime()===today.getTime();
+      const isTest=cur.getTime()===testD.getTime();
+      const dow=cur.getDay();
+      let cls='cal-day';
+      if(isToday&&isTest)cls+=' today testday';
+      else if(isToday)cls+=' today';
+      else if(isTest)cls+=' testday';
+      else if(dow===0)cls+=' sun';
+      else if(dow===6)cls+=' sat';
+      rows+=`<div class="${cls}">${d}</div>`;
+      col++;
+    }
+    return`<div class="cal-section"><div class="cal-sec-head"><span class="cal-month-lbl">${MN[month]} ${year}</span>${month===testD.getMonth()&&year===testD.getFullYear()?`<span class="${cdCls}">${cdTxt}</span>`:''}</div><div class="cal-grid">${rows}</div></div>`;
+  }
+
+  const tY=testD.getFullYear(),tM=testD.getMonth();
+  const toY=today.getFullYear(),toM=today.getMonth();
+  let months='';
+  if(tY===toY&&tM===toM){
+    months=makeMonth(toY,toM);
+  } else {
+    months=makeMonth(toY,toM)+makeMonth(tY,tM);
+  }
+
+  el.innerHTML=`<div class="cal-months">${months}</div>
+  <div class="cal-legend">
+    <div class="cal-leg"><div class="cal-leg-dot" style="background:var(--blue)"></div>今日</div>
+    <div class="cal-leg"><div class="cal-leg-dot" style="background:#e05050"></div>テスト日</div>
+  </div>`;
+}
+function renderStudentFilterBar(){
+  const bar=document.getElementById('t-stu-filter-bar');if(!bar)return;
+  const td=getTD();const groups=td.groups||[];
+  const sts=getAllStudents();
+  const counts={};sts.forEach(n=>{const sd=getSD(n);const gid=sd.groupId||'none';counts[gid]=(counts[gid]||0)+1;});
+  bar.innerHTML='';
+  const makeBtn=(label,count,filterVal)=>{
+    const btn=document.createElement('button');
+    const isActive=filterVal===tStudentFilter||(filterVal===null&&tStudentFilter===null);
+    btn.className='stu-filter-btn'+(isActive?' active':'');
+    btn.innerHTML=label+`<span class="stu-filter-count">${count}</span>`;
+    btn.addEventListener('click',()=>{tStudentFilter=filterVal;renderStudentFilterBar();renderStudentList();});
+    bar.appendChild(btn);
+  };
+  makeBtn('全員', sts.length, null);
+  groups.forEach(g=>{const c=counts[g.id]||0;if(c===0)return;makeBtn(gBadgeHtml(g), c, g.id);});
+}
+function renderStudentList(){
+  const el=document.getElementById('student-list');
+  const allSts=getAllStudents();
+  const td=getTD();
+  // フィルター適用
+  const sts=tStudentFilter===null?allSts:allSts.filter(n=>{const sd=getSD(n);return sd.groupId===tStudentFilter;});
+  if(!sts.length){el.innerHTML='<div class="empty-msg">'+(tStudentFilter?'このクラスの生徒はまだいません':'まだ生徒がログインしていません')+'</div>';return;}
+  el.innerHTML='';
+  // グループごとにまとめる（全員表示時のみ）
+  const groups=td.groups||[];
+  const grouped=tStudentFilter!==null?{null:sts}:{};
+  if(tStudentFilter===null){
+    sts.forEach(name=>{const gid=getSD(name).groupId;const key=gid||'none';if(!grouped[key])grouped[key]=[];grouped[key].push(name);});
+  }
+  // 並び順：登録クラス順 → クラス未設定
+  const keys=tStudentFilter!==null?[null]:
+    [...groups.map(g=>g.id).filter(id=>grouped[id]?.length),
+     ...(grouped['none']?.length?['none']:[])];
+  keys.forEach(key=>{
+    const names=key===null?sts:(grouped[key]||[]);
+    names.sort((a,b)=>a.localeCompare(b,'ja'));
+    const card=document.createElement('div');card.className='stu-group-card';
+    if(tStudentFilter===null&&key!==null){
+      const g=groups.find(g=>g.id===key);
+      if(g){
+        const hd=document.createElement('div');hd.className='stu-group-header';
+        const gradeMap={'中1':'中学1年','中2':'中学2年','中3':'中学3年'};
+        const gradeLbl=gradeMap[g.grade]||g.grade||'';
+        const schoolLbl=g.school||g.label;
+        hd.innerHTML=`<div class="stu-group-icon"><svg viewBox="0 0 24 24"><path d="M12 3L1 9l11 6 9-4.91V17h2V9M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg></div><div class="stu-group-info"><div class="stu-group-school">${esc(gradeLbl)} ${esc(schoolLbl)}</div></div><div class="stu-group-count-pill"><span class="stu-group-count-num">${names.length}</span><span class="stu-group-count-unit">名</span></div>`;
+        card.appendChild(hd);
+      }
+    }
+    names.forEach(name=>{
+      const sd=getSD(name);const gid=sd.groupId;
+      let max=0,total=0;getCurrentMats().filter(m=>gid?m.groupId===gid:true).forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});
+      const g=gid?(td.groups||[]).find(g=>g.id===gid):null;
+      const wrap=document.createElement('div');wrap.className='stu-row-t';
+      const sum=document.createElement('div');sum.className='stu-sum';
+      const ago=timeAgo(sd.lastUpdated);
+      const isFresh=sd.lastUpdated&&(Date.now()-new Date(sd.lastUpdated).getTime())<86400000;
+      const dotColor=!sd.lastUpdated?'#d0d5dd':isFresh?'var(--blue)':'#f59e0b';
+      sum.innerHTML=`<div class="stu-sum-top"><span class="stu-name-lg">${esc((findStudentById(name)||{}).name||name)}</span><span class="stu-score-lg">${Math.round(total)}</span><span class="stu-score-max"> / ${max}</span><span class="stu-cv">›</span></div><div class="stu-sum-bot"><div class="stu-time-dot" style="background:${dotColor}"></div><span class="stu-time-lbl${isFresh?' fresh':''}">${ago}</span>${g&&tStudentFilter!==null?`<span class="stu-gtag-sm">${gBadgeHtml(g)}</span>`:''}</div>`;
+      sum.addEventListener('click',()=>enterStudentDetail(name));
+      wrap.appendChild(sum);card.appendChild(wrap);
+    });
+    el.appendChild(card);
+  });
+}
+function enterStudentDetail(name){
+  tCurrentStuDetail=name;
+  document.getElementById('t-home').style.display='none';
+  hideAllRooms();
+  document.getElementById('t-room-student-detail').style.display='';
+  setHdBack('ホーム',()=>{
+    document.getElementById('t-room-student-detail').style.display='none';
+    showTHome();
+  },(findStudentById(name)||{}).name||name);
+  renderStudentDetailScreen(name);
+}
+function renderStudentDetailScreen(name){
+  const el=document.getElementById('t-stu-detail-content');
+  const td=getTD(),sd=getSD(name);const gid=sd.groupId;
+  const g=(td.groups||[]).find(gr=>gr.id===gid);
+  let maxT=0,totalT=0;
+  const allMatsT=getCurrentMats().filter(m=>gid?m.groupId===gid:true);
+  allMatsT.forEach(m=>{maxT+=m.points;totalT+=predScore(m.points,getGauge(sd,m.id));});
+  const allSelectedT=allMatsT.every(m=>getGauge(sd,m.id)!==null);
+  const ago=timeAgo(sd.lastUpdated);
+  const isFresh=sd.lastUpdated&&(Date.now()-new Date(sd.lastUpdated).getTime())<86400000;
+  const dotColor=!sd.lastUpdated?'#d0d5dd':isFresh?'var(--blue)':'#f59e0b';
+
+  let html=`<div class="stu-detail-hero" style="margin-bottom:14px;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 5px rgba(0,40,100,.05);overflow:hidden;">
+    <div class="stu-detail-name">${esc((findStudentById(name)||{}).name||name)}</div>
+    <div class="stu-detail-meta">
+      ${g?`<span class="stu-detail-class">${gBadgeHtml(g)}</span>`:''}
+      <span class="stu-detail-time${isFresh?' fresh':''}"><span class="stu-detail-time-dot" style="background:${dotColor}"></span>${ago}</span>
+    </div>
+    <div class="stu-detail-score-wrap">
+      <div class="stu-detail-score-lbl">予想得点</div>
+      <div class="stu-detail-score">
+        <span class="stu-detail-score-num">${allSelectedT?Math.round(totalT):"--"}</span>
+        <span class="stu-detail-score-max">/ 500</span>
+        <span class="stu-detail-score-unit">点</span>
+      </div>
+    </div>
+  </div>`;
+
+  const subjsWithMats=SUBJECTS.filter(s=>getCurrentMats().some(m=>m.subject===s&&(gid?m.groupId===gid:true)));
+  if(!subjsWithMats.length){html+='<div class="empty-msg" style="padding:32px">範囲が未登録です</div>';el.innerHTML=html;return;}
+
+  subjsWithMats.forEach(subj=>{
+    const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:true));
+    let sm=0,sp=0;mats.forEach(m=>{sm+=m.points;sp+=predScore(m.points,getGauge(sd,m.id));});
+    const pct=sm?sp/sm*100:0;
+    html+=`<div class="stu-detail-subj">
+      <div class="stu-detail-subj-head">
+        <span class="stu-detail-subj-name">${subj}</span>
+        <div class="stu-detail-subj-bar-wrap">
+          <div class="stu-detail-subj-bar-bg"><div class="stu-detail-subj-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+        <span class="stu-detail-subj-score">${Math.round(sp)} / ${sm}</span>
+      </div>`;
+    mats.forEach((m,i)=>{
+      const lv=getGauge(sd,m.id);const p=Math.round(predScore(m.points,lv));
+      const lvSt=levelStyle(lv);
+      const opts='<option value=""'+(lv===null?' selected':'')+'>学習状況を選択</option>'+PRESETS.map(pr=>`<option value="${pr.v}"${pr.v===lv?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
+      html+=`<div class="stu-detail-mat t-detail-mat-row" data-mid="${m.id}" data-pts="${m.points}">
+        <div class="t-dm-head">
+          <span class="stu-detail-mat-idx">範囲${i+1}</span>
+          <span class="stu-detail-mat-name">${esc(m.name)}</span>
+          <span class="stu-detail-mat-score" id="t-detail-mp-${m.id}">${p}/${m.points}点</span>
+        </div>
+        <select class="stu-detail-mat-sel" data-mid="${m.id}" data-pts="${m.points}" style="background-color:${lvSt.bg};color:${lvSt.color};border-color:${lvSt.bd};">${opts}</select>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  el.innerHTML=html;
+  el.querySelectorAll('.stu-detail-mat-sel').forEach(sel=>{
+    sel.addEventListener('change',function(){
+      const mid=parseInt(this.dataset.mid);const pts=parseInt(this.dataset.pts);
+      const nlv=this.value?parseInt(this.value):null;
+      const nsd=getSD(name);const tid=getTD().currentTestId;
+      if(!nsd.byTest)nsd.byTest={};if(!nsd.byTest[tid])nsd.byTest[tid]={gauge:{},target:null,lastUpdated:null};
+      nsd.byTest[tid].gauge[mid]=nlv;nsd.byTest[tid].lastUpdated=new Date().toISOString();nsd.lastUpdated=nsd.byTest[tid].lastUpdated;
+      saveSD(name,nsd);
+      const mp=document.getElementById('t-detail-mp-'+mid);
+      if(mp)mp.textContent=Math.round(predScore(pts,nlv))+'/'+pts+'点';
+      const ns=levelStyle(nlv);
+      this.style.backgroundColor=ns.bg;this.style.color=nlv?ns.color:'#94a3b8';this.style.borderColor=ns.bd;
+      renderStudentDetailScreen(name);
+    });
+  });
+}
+function buildStuDetail(name){const td=getTD(),sd=getSD(name);const gid=sd.groupId;const ss=SUBJECTS.filter(s=>getCurrentMats().some(m=>m.subject===s&&(gid?m.groupId===gid:true)));if(!ss.length)return'<div class="empty-msg" style="padding:14px">範囲が未登録です</div>';return ss.map(subj=>{const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:true));let sm=0,sp=0;mats.forEach(m=>{sm+=m.points;sp+=predScore(m.points,getGauge(sd,m.id));});const pct=sm?sp/sm*100:0;const items=mats.map(m=>{const lv=getGauge(sd,m.id);const p=Math.round(predScore(m.points,lv));return`<div class="stu-mi"><span class="stu-mn">${esc(m.name)}</span><span class="${lv<=10?'stu-ml zero':'stu-ml'}">${levelLabel(lv)}</span><span class="stu-mp">${p}/${m.points}点</span></div>`;}).join('');return`<div class="stu-sb"><div class="stu-sh"><span class="stu-snm">${subj}</span><div class="stu-sbar"><div class="stu-sbar-f" style="width:${pct}%"></div></div><span class="stu-ssc">${Math.round(sp)} / ${sm}</span></div>${items}</div>`;}).join('');}
+
+function showGoalSetup(){
+  document.getElementById('goal-setup').className='screen on';
+  document.getElementById('goal-setup').style.display='flex';
+  document.getElementById('student').className='screen';
+  document.getElementById('student').style.display='none';
+  document.getElementById('login').style.display='none';
+  document.getElementById('goal-err').textContent='';
+  document.getElementById('goal-input').value='';
+  const td=getTD(),sd=getSD(studentName);const gid=sd.groupId;
+  const maxT=getCurrentMats().filter(m=>gid?m.groupId===gid:!m.groupId).reduce((s,m)=>s+m.points,0);
+  document.getElementById('goal-max-lbl').textContent='/ 500点満点';
+  setTimeout(()=>document.getElementById('goal-input').focus(),100);
+}
+function confirmGoal(){
+  const v=parseInt(document.getElementById('goal-input').value);
+  if(!v||v<=0){document.getElementById('goal-err').textContent='点数を入力してください';return;}
+  const sd=getSD(studentName);const tid=getTD().currentTestId;if(!sd.byTest)sd.byTest={};if(!sd.byTest[tid])sd.byTest[tid]={gauge:{},target:null,lastUpdated:null};sd.byTest[tid].target=v;sd.target=v;saveSD(studentName,sd);
+  document.getElementById('goal-setup').className='screen';
+  document.getElementById('goal-setup').style.display='none';
+  document.getElementById('student').style.display='';
+  showStudent();
+  // 念のため明示的にtargetを入力欄にセット
+  const inp=document.getElementById('s-target-input');
+  if(inp){inp.value=v;updateTargetDiff();}
+}
+function showStudent(){document.getElementById('student').className='screen on';document.getElementById('teacher').className='screen';const td=getTD(),sd=getSD(studentName);document.getElementById('s-testname').textContent='';const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);document.getElementById('s-name-hd').textContent=(g?g.label+' ':'')+studentName+'さん';const stuObj=findStudentById(studentName);const dispName=stuObj?stuObj.name:studentName;document.getElementById('s-name-hd').textContent=(g?gLabel(g)+' / ':'')+dispName+'さん';sOpenSubj=null;renderCountdown();renderSCards();sRecalcBanner();initTargetUI();}
+function getMats(subj,sd){const td=getTD();const gid=sd.groupId;return getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:!m.groupId));}
+function sSubjStats(subj){const sd=getSD(studentName);const mats=getMats(subj,sd);let max=0,total=0;mats.forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});const sp=subjectSpread(mats,sd);return{max,total,mats,count:mats.length,low:Math.max(0,Math.round(total-sp)),high:Math.min(max,Math.round(total+sp))};}
+function updateSCardHeader(subj){
+  const sd=getSD(studentName);const st=sSubjStats(subj);
+  const pct=st.max?st.total/st.max*100:0;
+  const allSel=st.mats.length>0&&st.mats.every(m=>getGauge(sd,m.id)!==null);
+  const col=scoreColor(pct,allSel);
+  const rng=st.count&&st.low<st.high?`<span class="schd-rng"> (${st.low}〜${st.high})</span>`:'';
+  const cards=document.querySelectorAll('.subj-card');
+  for(const card of cards){
+    const badge=card.querySelector('.schd-badge');
+    if(badge&&badge.textContent===subj){
+      badge.style.background=col;
+      const bar=card.querySelector('.schd-bar-f');
+      if(bar){bar.style.width=pct+'%';bar.style.background=col;}
+      const score=card.querySelector('.schd-score');
+      if(score)score.innerHTML=`${st.count?Math.round(st.total):'--'}${rng}<span class="dn"> / ${st.max||'--'}</span>`;
+      break;
+    }
+  }
+}
+function toggleSCard(subj){
+  sOpenSubj=sOpenSubj===subj?null:subj;
+  renderSCards();
+}
+function renderSCards(){const td=getTD(),el=document.getElementById('s-cards');el.innerHTML='';const sd=getSD(studentName);const gid=sd.groupId;if(!getCurrentMats().some(m=>gid?m.groupId===gid:!m.groupId)){el.innerHTML='<div class="empty-msg"><b>先生がまだ範囲を登録していません</b></div>';return;}SUBJECTS.forEach(subj=>{const st=sSubjStats(subj);const pct=st.max?st.total/st.max*100:0;const allSel=st.mats.length>0&&st.mats.every(m=>getGauge(sd,m.id)!==null);const col=scoreColor(pct,allSel);const open=sOpenSubj===subj;const card=document.createElement('div');card.className='subj-card'+(open?' open':'');const hd=document.createElement('div');hd.className='subj-card-hd';const rng=st.count&&st.low<st.high?`<span class="schd-rng"> (${st.low}〜${st.high})</span>`:'';hd.innerHTML=`<span class="schd-badge" style="background:${col}">${subj}</span><div class="schd-bar-wrap"><div class="schd-bar-tr"><div class="schd-bar-f" style="width:${pct}%;background:${col}"></div></div></div><span class="schd-score">${st.count?Math.round(st.total):'--'}${rng}<span class="dn"> / ${st.max||'--'}</span></span><span class="schd-car">▶</span>`;hd.addEventListener('click',()=>toggleSCard(subj));card.appendChild(hd);const body=document.createElement('div');body.className='subj-card-body';if(open)buildMatBody(subj,body);card.appendChild(body);el.appendChild(card);});}
+function buildMatBody(subj,body){
+  const sd=getSD(studentName);const mats=getMats(subj,sd);
+  if(!mats.length){body.innerHTML='<div class="empty-msg" style="padding:18px">この教科の範囲は未登録です</div>';return;}
+  mats.forEach((m,idx)=>{
+    const lv=getGauge(sd,m.id);const p=Math.round(predScore(m.points,lv));
+    const row=document.createElement('div');row.className='mat-item';
+    const opts='<option value=""'+(lv===null?' selected':'')+'>学習状況を選択</option>'+PRESETS.map(pr=>`<option value="${pr.v}"${pr.v===lv?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
+    const lvSt=levelStyle(lv);
+    row.innerHTML=`<div class="mat-item-info"><div class="mat-item-name"><span class="mat-lbl">範囲${idx+1}</span> ${esc(m.name)}</div><div class="mat-item-sel"><select class="mat-sel" id="sel-${m.id}" style="background-color:${lvSt.bg};color:${lvSt.color};border-color:${lvSt.bd};font-weight:600;">${opts}</select></div></div><div class="mat-item-right"><div class="mat-pred" id="mp-${m.id}">${p}点</div><div class="mat-alloc">配点 ${m.points}</div></div>`;
+    body.appendChild(row);
+    row.querySelector('#sel-'+m.id).addEventListener('change',function(){
+      const nlv=this.value?parseInt(this.value):null;
+      const nsd=getSD(studentName);const tid=getTD().currentTestId;
+      if(!nsd.byTest)nsd.byTest={};if(!nsd.byTest[tid])nsd.byTest[tid]={gauge:{},target:null,lastUpdated:null};
+      nsd.byTest[tid].gauge[m.id]=nlv;nsd.byTest[tid].lastUpdated=new Date().toISOString();nsd.lastUpdated=nsd.byTest[tid].lastUpdated;
+      saveSD(studentName,nsd);
+      const mp=body.querySelector('#mp-'+m.id);if(mp)mp.textContent=Math.round(predScore(m.points,nlv))+'点';
+      const ns=levelStyle(nlv);
+      this.style.backgroundColor=ns.bg;this.style.color=nlv?ns.color:'#94a3b8';this.style.borderColor=ns.bd;this.style.fontWeight=nlv?'600':'400';
+      updateSCardHeader(subj);sRecalcBanner();
+    });
+  });
+}
+function renderStudentRegistration(){
+  const td=getTD();
+  // クラスドロップダウンを更新
+  const groupSel=document.getElementById('sr-group');
+  if(groupSel){
+    groupSel.innerHTML='<option value="">クラスを選択</option>'+(td.groups||[]).map(g=>`<option value="${g.id}">${gLabel(g)}</option>`).join('');
+  }
+  // 登録済み生徒一覧を更新
+  const list=document.getElementById('sr-list');
+  if(!list)return;
+  const stus=td.students||[];
+  if(!stus.length){list.innerHTML='<div class="empty-msg">まだ生徒が登録されていません</div>';return;}
+  list.innerHTML='';
+  stus.forEach(stu=>{
+    const g=(td.groups||[]).find(gr=>gr.id===stu.groupId);
+    const row=document.createElement('div');row.className='sr-row';
+    row.innerHTML=`<div style="flex:1"><div style="font-family:'Roboto Mono',monospace;font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px;">${esc(stu.id)}</div><div style="font-size:11px;color:var(--sub);">${g?gLabel(g):'クラス未設定'} &nbsp;PW: ${esc(stu.password)}</div></div><button class="class-header-del" data-id="${esc(stu.id)}">削除</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.class-header-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const td2=getTD();td2.students=(td2.students||[]).filter(s=>s.id!==btn.dataset.id);saveTD(td2);renderStudentRegistration();
+    });
+  });
+}
+function addStudent(){
+  const id=document.getElementById('sr-id').value.trim();
+  const pw=document.getElementById('sr-pw').value;
+  const gid=document.getElementById('sr-group').value;
+  const err=document.getElementById('sr-err');
+  if(!id||!pw||!gid){err.textContent='すべて入力してください';err.style.display='block';return;}
+  const td=getTD();
+  if((td.students||[]).some(s=>s.id===id)){err.textContent='このIDは既に使われています';err.style.display='block';return;}
+  err.style.display='none';
+  if(!td.students)td.students=[];
+  td.students.push({id:id,password:pw,name:id,groupId:parseInt(gid)});
+  saveTD(td);
+  document.getElementById('sr-id').value='';
+  document.getElementById('sr-pw').value='';
+  renderStudentRegistration();
+}
+function deleteStudent(id){
+  const td=getTD();
+  td.students=(td.students||[]).filter(s=>s.id!==id);
+  saveTD(td);
+  renderStudentRegistration();
+}
+function initTargetUI(){
+  const inp=document.getElementById('s-target-input');
+  if(!inp)return;
+  const sd=getSD(studentName);
+  const tid=getTD().currentTestId;const tgt=sd.byTest&&sd.byTest[tid]?sd.byTest[tid].target:sd.target;if(tgt)inp.value=tgt;else inp.value='';
+  inp.addEventListener('input',updateTargetDiff);
+  updateTargetDiff();
+}
+function updateTargetDiff(){
+  const wrap=document.getElementById('s-target-diff-wrap');
+  const card=document.getElementById('score-target-card');
+  const lbl=document.getElementById('s-target-diff-lbl');
+  const num=document.getElementById('s-target-diff-num');
+  const disp=document.getElementById('s-target-display');
+  if(!wrap)return;
+  const sd=getSD(studentName);const tid=getTD().currentTestId;
+  const target=sd.byTest&&sd.byTest[tid]?sd.byTest[tid].target:sd.target;
+  const scoreText=document.getElementById('s-score').textContent;
+  if(disp)disp.textContent=target||'--';
+  if(!target||scoreText==='--'||scoreText==='0'){wrap.style.display='none';if(card)card.classList.remove('clear');return;}
+  const current=parseInt(scoreText)||0;
+  const diff=target-current;
+  wrap.style.display='block';
+  if(diff<=0){lbl.textContent='達成！';num.textContent='+'+Math.abs(diff);if(card)card.classList.add('clear');}
+  else{lbl.textContent='目標まで';num.textContent=diff;if(card)card.classList.remove('clear');}
+}
+function saveTargetAndClose(){
+  const inp=document.getElementById('s-target-input');
+  const v=parseInt(inp.value);
+  if(!v||v<0||v>500)return;
+  const sd=getSD(studentName);const tid=getTD().currentTestId;
+  if(!sd.byTest)sd.byTest={};if(!sd.byTest[tid])sd.byTest[tid]={gauge:{},target:null,lastUpdated:null};
+  sd.byTest[tid].target=v;sd.target=v;saveSD(studentName,sd);
+  inp.value='';
+  document.getElementById('s-target-view').style.display='';
+  document.getElementById('s-target-edit').style.display='none';
+  updateTargetDiff();
+}
+function calcSchoolRank(studentId){
+  const td=getTD();
+  const myStu=findStudentById(studentId);if(!myStu)return null;
+  const myGroup=(td.groups||[]).find(g=>g.id===myStu.groupId);
+  if(!myGroup||!myGroup.school)return null;
+  const sameSchool=(td.students||[]).filter(s=>{
+    const g=(td.groups||[]).find(gr=>gr.id===s.groupId);
+    return g&&g.school===myGroup.school;
+  });
+  if(sameSchool.length<2)return null;
+  const scores=sameSchool.map(s=>{
+    const sd=getSD(s.id);const gid=sd.groupId;
+    let total=0;
+    getCurrentMats().filter(m=>gid?m.groupId===gid:true).forEach(m=>{
+      total+=predScore(m.points,getGauge(sd,m.id));
+    });
+    return{id:s.id,score:total};
+  });
+  scores.sort((a,b)=>b.score-a.score);
+  const myIdx=scores.findIndex(s=>s.id===studentId);
+  return{rank:myIdx+1,total:scores.length,school:myGroup.school};
+}
+function updateSchoolRank(){
+  const wrap=document.getElementById('s-rank-wrap');if(!wrap)return;
+  const r=calcSchoolRank(studentName);
+  if(!r){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  document.getElementById('s-rank-pos').textContent=r.rank;
+  document.getElementById('s-rank-total').textContent=r.total;
+  
+}
+function sRecalcBanner(){const td=getTD(),sd=getSD(studentName);const gid=sd.groupId;let maxT=0,totalT=0,lowT=0,highT=0;SUBJECTS.forEach(subj=>{const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:!m.groupId));if(!mats.length)return;let sm=0,st=0;mats.forEach(m=>{sm+=m.points;st+=predScore(m.points,getGauge(sd,m.id));});const sp=subjectSpread(mats,sd);maxT+=sm;totalT+=st;lowT+=Math.max(0,Math.round(st-sp));highT+=Math.min(sm,Math.round(st+sp));});const allMats2=getCurrentMats().filter(m=>gid?m.groupId===gid:!m.groupId);
+  const allSelected=allMats2.length>0&&allMats2.every(m=>getGauge(sd,m.id)!==null);
+  const pendingEl=document.getElementById('sim-pending');
+  const mainEl=document.getElementById('score-main-wrap');
+  if(pendingEl&&mainEl){pendingEl.className=allSelected?'sim-pending':'sim-pending on';mainEl.style.display=allSelected?'':'none';}
+  document.getElementById('s-score').textContent=Math.round(totalT);document.getElementById('s-max').textContent='/ 500点';const rng=document.getElementById('s-range');if(rng){const score=Math.round(totalT);if(score>0){const ns='font-family:\'Roboto Mono\',monospace;font-size:13px;font-weight:600;';const lo=Math.max(0,score-20);const hi=Math.min(500,score+20);rng.innerHTML=`予測レンジ：<span style="${ns}">${lo}</span>〜<span style="${ns}">${hi}</span>点`;rng.style.display='';}else{rng.innerHTML='';rng.style.display='none';}}updateTargetDiff();updateSchoolRank();}
+loadAllFromFirestore();
+
+window.onerror=function(msg,src,line,col,err){
+  console.error('APP ERROR:',msg,'at',src,line+':'+col,err);
+  return false;
+};
+</script>
+</body>
+</html>
