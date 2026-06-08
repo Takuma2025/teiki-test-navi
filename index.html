@@ -31,15 +31,15 @@
   --bad:#dc2626; --ok:#2db87c;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--bg2);color:var(--text);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
-html{overscroll-behavior:none;-webkit-text-size-adjust:100%;height:100%;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg2);color:var(--text);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;overflow-x:hidden;}
+html{overscroll-behavior:none;-webkit-text-size-adjust:100%;height:100%;overflow-x:hidden;background:var(--blue);}
 *{-webkit-touch-callout:none;}
 input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .screen{display:none;}.screen.on{display:block;}
 
 /* ── LOGIN ── */
-#login{min-height:100vh;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#0050a0 0%,#005cac 55%,#1a73c8 100%);padding:40px 24px;}
-.gear-btn{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.75);cursor:pointer;padding:7px 13px;border-radius:20px;transition:.2s;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;letter-spacing:.04em;}
+#login{min-height:100vh;min-height:100dvh;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#0050a0 0%,#005cac 55%,#1a73c8 100%);padding:40px 24px;}
+.gear-btn{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:16px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.75);cursor:pointer;padding:7px 13px;border-radius:20px;transition:.2s;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;letter-spacing:.04em;}
 .gear-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff;}
 .gear-btn svg{width:14px;height:14px;fill:currentColor;flex-shrink:0;}
 .login-avatar{width:90px;height:90px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px;border:2px solid rgba(255,255,255,.3);}
@@ -80,7 +80,7 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .btn-ok:hover{background:var(--blue2);}
 
 /* ── HEADER ── */
-.hd{background:var(--blue);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 6px rgba(0,0,0,.12);}
+.hd{background:var(--blue);padding:0 16px;padding-top:env(safe-area-inset-top,0px);height:calc(56px + env(safe-area-inset-top,0px));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 6px rgba(0,0,0,.12);}
 .hd-logo{font-size:17px;font-weight:700;color:#fff;letter-spacing:.04em;}
 .hd-logo small{font-size:10px;color:rgba(255,255,255,.6);font-weight:300;letter-spacing:.12em;display:block;margin-top:1px;}
 .hd-right{display:flex;align-items:center;gap:8px;}
