@@ -6,6 +6,71 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script>
+let _weakPhotoData=null;
+function compressImage(file,maxW,quality){
+  return new Promise((resolve)=>{
+    const reader=new FileReader();
+    reader.onload=function(e){
+      const img=new Image();
+      img.onload=function(){
+        const canvas=document.createElement('canvas');
+        let w=img.width,h=img.height;
+        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+        canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',quality));
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderWeakPoints(){
+  const list=document.getElementById('s-weak-list');if(!list)return;
+  const sd=getSD(studentName);const tid=getTD().currentTestId;
+  const wp=(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].weakPoints)||[];
+  if(!wp.length){list.innerHTML='<div style="font-size:12px;color:var(--sub);padding:4px 0;">まだ登録がありません</div>';return;}
+  list.innerHTML='';
+  wp.forEach((entry,i)=>{
+    const isObj=typeof entry==='object';
+    const txt=isObj?entry.text:entry;
+    const img=isObj?entry.image:null;
+    const item=document.createElement('div');item.className='s-weak-item';item.style.flexDirection='column';item.style.alignItems='flex-start';
+    item.innerHTML=`<div style="display:flex;align-items:center;gap:8px;width:100%;"><span class="s-weak-item-text">${esc(txt||'')}</span><button class="s-weak-item-del" data-idx="${i}">×</button></div>${img?`<img class="s-weak-item-img" src="${img}">`:''}`;
+    list.appendChild(item);
+  });
+  list.querySelectorAll('.s-weak-item-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const sd2=getSD(studentName);const tid2=getTD().currentTestId;
+      if(sd2.byTest&&sd2.byTest[tid2]&&sd2.byTest[tid2].weakPoints){
+        sd2.byTest[tid2].weakPoints.splice(idx,1);
+        saveSD(studentName,sd2);
+        renderWeakPoints();
+      }
+    });
+  });
+}
+function addWeakPoint(){
+  const inp=document.getElementById('s-weak-input');if(!inp)return;
+  const txt=inp.value.trim();
+  if(!txt&&!_weakPhotoData)return;
+  const sd=getSD(studentName);const tid=getTD().currentTestId;
+  if(!sd.byTest)sd.byTest={};
+  if(!sd.byTest[tid])sd.byTest[tid]={gauge:{},target:null,lastUpdated:null};
+  if(!sd.byTest[tid].weakPoints)sd.byTest[tid].weakPoints=[];
+  const entry=_weakPhotoData?{text:txt,image:_weakPhotoData}:txt;
+  sd.byTest[tid].weakPoints.push(entry);
+  sd.byTest[tid].lastUpdated=new Date().toISOString();
+  sd.lastUpdated=sd.byTest[tid].lastUpdated;
+  saveSD(studentName,sd);
+  inp.value='';_weakPhotoData=null;
+  document.getElementById('s-weak-preview').style.display='none';
+  renderWeakPoints();
+}
+
     // ▼ Firebaseを使う場合は自分の設定に書き換えてください
     const firebaseConfig = {
       apiKey:            "AIzaSyDAXhLk0x-IHtig8MJXprrsTOCesZZCwWs",
@@ -32,13 +97,13 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--bg2);color:var(--text);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;overflow-x:hidden;}
-html{overscroll-behavior:none;-webkit-text-size-adjust:100%;height:100%;overflow-x:hidden;background:var(--blue);}
+html{overscroll-behavior:none;-webkit-text-size-adjust:100%;height:100%;overflow-x:hidden;}
 *{-webkit-touch-callout:none;}
 input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .screen{display:none;}.screen.on{display:block;}
 
 /* ── LOGIN ── */
-#login{min-height:100vh;min-height:100dvh;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#0050a0 0%,#005cac 55%,#1a73c8 100%);padding:40px 24px;}
+#login{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--blue);padding:40px 24px;z-index:200;overflow-y:auto;}
 .gear-btn{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:16px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.75);cursor:pointer;padding:7px 13px;border-radius:20px;transition:.2s;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;letter-spacing:.04em;}
 .gear-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff;}
 .gear-btn svg{width:14px;height:14px;fill:currentColor;flex-shrink:0;}
@@ -214,27 +279,28 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .subj-mini-val{font-family:'Roboto Mono',monospace;font-size:11px;color:rgba(255,255,255,.75);white-space:nowrap;min-width:54px;text-align:right;}
 
 /* ── STUDENT SUBJECT CARD ── */
-.subj-card{background:#fff;margin-bottom:8px;}
-.subj-card-hd{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;transition:.12s;}
-.subj-card-hd:active{background:var(--bg2);}
-.subj-card.open .subj-card-hd{background:var(--bg2);}
-.schd-badge{font-size:12px;font-weight:500;color:#fff;background:var(--blue);border-radius:20px;padding:3px 12px;flex-shrink:0;}
+.subj-card{background:#fff;margin-bottom:8px;border-radius:10px;overflow:hidden;}
+.subj-card-hd{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;transition:.12s;background:var(--blue);}
+.subj-card-hd:active{background:#004a8f;}
+.subj-card.open .subj-card-hd{background:var(--blue);}
+.schd-badge{font-size:14px;font-weight:700;color:#fff;flex-shrink:0;}
 .schd-bar-wrap{flex:1;display:flex;flex-direction:column;gap:3px;}
-.schd-bar-tr{height:4px;background:#edf2f7;border-radius:2px;overflow:hidden;}
-.schd-bar-f{height:100%;background:var(--blue);border-radius:2px;transition:width .4s;}
-.schd-score{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--blue);flex-shrink:0;white-space:nowrap;}
-.schd-score .dn{font-size:10px;color:#b0bac8;font-weight:400;}
-.schd-rng{font-size:10px;color:#b0bac8;}
-.schd-car{font-size:10px;color:#c5cdd8;transition:transform .2s;flex-shrink:0;}
+.schd-bar-tr{height:4px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;}
+.schd-bar-f{height:100%;background:#fff;border-radius:2px;transition:width .4s;}
+.schd-score{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;white-space:nowrap;background:#94a3b8;padding:3px 10px;border-radius:14px;background-size:200% 100%;animation:none;}
+
+.schd-score .dn{font-size:10px;color:rgba(255,255,255,.8);font-weight:400;}
+.schd-rng{font-size:10px;color:rgba(255,255,255,.6);}
+.schd-car{font-size:10px;color:rgba(255,255,255,.7);transition:transform .2s;flex-shrink:0;}
 .subj-card.open .schd-car{transform:rotate(90deg);}
 .subj-card-body{display:none;border-top:1px solid var(--border);padding:10px 12px;background:var(--bg2);}
 .subj-card.open .subj-card-body{display:block;animation:fadeIn .15s ease;}
-.mat-item{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--border);border-radius:10px;padding:14px 14px 12px;background:#fff;box-shadow:0 1px 4px rgba(0,40,100,.04);margin-bottom:8px;}
-.mat-item:last-child{margin-bottom:0;}
+.mat-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--border);}
+.mat-item:last-child{border-bottom:none;}
 .mat-item-info{flex:1;min-width:0;}
-.mat-item-name{font-size:14px;font-weight:500;color:var(--text);margin-bottom:8px;}
-.mat-item-sel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.mat-sel{font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:600;color:var(--text);background-color:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 36px 9px 14px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%23475569' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:100%;max-width:320px;transition:.15s;}
+.mat-item-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mat-item-sel{}
+.mat-sel{font-family:'Noto Sans JP',sans-serif;font-size:11px;font-weight:600;color:var(--text);background-color:#fff;border:1px solid var(--border);border-radius:6px;padding:5px 28px 5px 10px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%23475569' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;width:100%;max-width:260px;transition:.15s;}
 .mat-sel option{color:var(--text);background:#fff;font-weight:400;}
 .mat-pred{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--blue);flex-shrink:0;white-space:nowrap;}
 .mat-lv-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;margin-top:4px;}
@@ -326,7 +392,7 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .save-tick{font-size:14px;color:var(--ok);opacity:0;transition:.3s;}
 .save-tick.on{opacity:1;}
 
-.mat-item-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:3px;}
+.mat-item-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:1px;}
 .mat-alloc{font-size:10px;color:var(--sub);font-family:'Roboto Mono',monospace;white-space:nowrap;}
 
 
@@ -490,6 +556,32 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .hd-btn-sub{background:none;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.75);font-size:11px;font-weight:500;padding:5px 10px;border-radius:16px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
 .hd-btn-sub:hover{background:rgba(255,255,255,.15);color:#fff;}
 .modal-err{font-size:12px;color:#dc2626;min-height:18px;margin-bottom:8px;}
+.modal-actions{display:flex;gap:10px;margin-top:4px;}
+.btn-modal-cancel{flex:1;padding:10px;border:1.5px solid var(--border);background:#fff;color:var(--sub);font-size:14px;font-weight:600;border-radius:10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
+.btn-modal-cancel:hover{background:var(--bg2);}
+.btn-modal-ok{flex:1;padding:10px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:600;border-radius:10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
+.btn-modal-ok:hover{background:#004a8f;}
+.t-test-del-btn{background:none;border:1px solid #fca5a5;color:#dc2626;font-size:11px;font-weight:500;padding:4px 10px;border-radius:16px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
+.t-test-del-btn:hover{background:#fef2f2;}
+.s-weak-section{margin-top:4px;}
+.s-weak-body{background:#fff;padding:12px 16px;}
+.s-weak-input-row{display:flex;gap:8px;margin-top:8px;}
+.s-weak-input{flex:1;font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;transition:.15s;}
+.s-weak-input:focus{border-color:var(--blue);}
+.s-weak-input::placeholder{color:#cbd5e1;}
+.s-weak-add-btn{background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;flex-shrink:0;}
+.s-weak-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.s-weak-item:last-child{border-bottom:none;}
+.s-weak-item-text{flex:1;font-size:13px;color:var(--text);}
+.s-weak-item-del{background:none;border:none;cursor:pointer;color:#d1d5db;padding:4px;transition:.15s;font-size:16px;}
+.s-weak-item-del:hover{color:#ef4444;}
+.s-weak-photo-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:var(--bg2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex-shrink:0;transition:.15s;}
+.s-weak-photo-btn:hover{border-color:var(--blue);background:var(--blue-lt);}
+.s-weak-photo-btn svg{width:18px;height:18px;fill:var(--sub);}
+.s-weak-preview{position:relative;margin-bottom:8px;display:inline-block;}
+.s-weak-preview img{max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);}
+.s-weak-preview-del{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.s-weak-item-img{max-width:100%;max-height:180px;border-radius:6px;margin-top:6px;border:1px solid var(--border);}
 /* ── RESPONSIVE (タブレット・PC対応) ── */
 html{background:var(--bg2);}
 
@@ -619,7 +711,6 @@ html{background:var(--bg2);}
     </div>
     <div id="t-hd-center"></div>
     <div class="hd-right">
-      <button class="hd-btn-sub" id="t-pw-change">PW変更</button>
       <button class="hd-btn" id="t-logout">ログアウト</button>
     </div>
   </div>
@@ -639,6 +730,7 @@ html{background:var(--bg2);}
           <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;flex-shrink:0"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
           テスト範囲登録
         </button>
+        <button class="t-mini-btn" id="t-pw-change" style="margin-left:auto;">PW変更</button>
       </div>
       <!-- DASHBOARD -->
       <div style="padding:20px 14px 8px;">
@@ -656,6 +748,7 @@ html{background:var(--bg2);}
       <div style="background:#fff;padding:14px 16px;border-bottom:1px solid var(--border);">
         <div style="font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:6px;">テストを選択</div>
         <select id="t-test-select" class="fsel" style="font-size:15px;font-weight:600;color:var(--blue);"></select>
+        <div id="t-test-del-area" style="margin-top:8px;"></div>
       </div>
       <div class="page-title">クラスを選択して範囲を登録</div>
       <div class="t-class-card">
@@ -752,10 +845,9 @@ html{background:var(--bg2);}
 <div id="student" class="screen">
   <div class="hd">
     <div>
-      <div class="hd-logo" id="s-testname"></div>
+      <span class="hd-name" id="s-name-hd"></span>
     </div>
     <div class="hd-right">
-      <span class="hd-name" id="s-name-hd"></span>
       <button class="hd-btn" id="s-logout">ログアウト</button>
     </div>
   </div>
@@ -822,6 +914,27 @@ html{background:var(--bg2);}
       <div class="s-section-sub">テスト範囲表の内容を、1つずつ仕上げていこう。各項目が今どのレベルまでできているかを記録しましょう。</div>
     </div>
     <div id="s-cards"></div>
+    <div class="s-weak-section" id="s-weak-section">
+      <div class="s-section-title-wrap">
+        <div class="s-section-title">苦手・わからない問題</div>
+        <div class="s-section-sub">今回特に苦手な単元やわからない問題を記録しておこう。</div>
+      </div>
+      <div class="s-weak-body">
+        <div id="s-weak-list"></div>
+        <div id="s-weak-preview" class="s-weak-preview" style="display:none;">
+          <img id="s-weak-preview-img">
+          <button class="s-weak-preview-del" id="s-weak-preview-del">×</button>
+        </div>
+        <div class="s-weak-input-row">
+          <input class="s-weak-input" id="s-weak-input" type="text" placeholder="例：二次方程式の文章題">
+          <label class="s-weak-photo-btn" id="s-weak-photo-label">
+            <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+            <input type="file" accept="image/*" id="s-weak-file" style="display:none;">
+          </label>
+          <button class="s-weak-add-btn" id="s-weak-add">追加</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -892,19 +1005,19 @@ function defaultTD(){
 }
 const PRESETS=[
   {v:5,  symbol:'×', label:'まだ手をつけていない',                        color:'#dc2626', bg:'#fef2f2', bd:'#fca5a5'},
-  {v:40, symbol:'△', label:'とりあえず1周しただけ',                       color:'#d97706', bg:'#fffbeb', bd:'#fcd34d'},
+  {v:40, symbol:'△', label:'とりあえず1周しただけ',                       color:'#eab308', bg:'#fefce8', bd:'#fde047'},
   {v:60, symbol:'○', label:'くりかえし解いて基本・標準問題は解ける',        color:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
   {v:80, symbol:'◎', label:'くりかえし解いて応用問題も解ける',              color:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
   {v:95, symbol:'★', label:'何も見ずにほぼ完ぺきにできることを確認した',    color:'#005cac', bg:'#eef5fc', bd:'#cce0f5'}
 ];
 function scoreColor(pct,allSelected){
   if(!allSelected)return'#94a3b8';
-  if(pct<50)return'#dc2626';
-  if(pct<60)return'#facc15';
-  if(pct<70)return'#84cc16';
+  if(pct<40)return'#dc2626';
+  if(pct<55)return'#f97316';
+  if(pct<70)return'#eab308';
   if(pct<80)return'#16a34a';
-  if(pct<90)return'#005cac';
-  return'#003d73';
+  if(pct<90)return'#0066cc';
+  return'#003366';
 }
 function levelStyle(lv){if(!lv)return{color:'#94a3b8',bg:'#fff',bd:'#d0d5dd'};const p=PRESETS.find(p=>p.v===lv);return p?p:{color:'#94a3b8',bg:'#f1f5f9',bd:'#e2e8f0'};}
 function predScore(p,l){return l?p*l/100:0;}
@@ -978,6 +1091,21 @@ document.getElementById('cr-add-btn').addEventListener('click',addClassFromCR);
 
 document.getElementById('sr-add').addEventListener('click',addStudent);
 document.getElementById('t-logout').addEventListener('click',logout);
+document.getElementById('s-weak-add').addEventListener('click',addWeakPoint);
+document.getElementById('s-weak-file').addEventListener('change',async function(){
+  if(!this.files||!this.files[0])return;
+  const data=await compressImage(this.files[0],600,0.6);
+  _weakPhotoData=data;
+  const prev=document.getElementById('s-weak-preview');
+  document.getElementById('s-weak-preview-img').src=data;
+  prev.style.display='inline-block';
+  this.value='';
+});
+document.getElementById('s-weak-preview-del').addEventListener('click',()=>{
+  _weakPhotoData=null;
+  document.getElementById('s-weak-preview').style.display='none';
+});
+document.getElementById('s-weak-input').addEventListener('keydown',e=>{if(e.key==='Enter')addWeakPoint();});
 document.getElementById('t-pw-change').addEventListener('click',()=>{
   document.getElementById('pw-old').value='';
   document.getElementById('pw-new1').value='';
@@ -1056,8 +1184,32 @@ function clearHdBack(){
 function refreshTestSelector(){
   const sel=document.getElementById('t-test-select');if(!sel)return;
   const td=getTD();
-  sel.innerHTML=TESTS.map(t=>`<option value="${t.id}"${t.id===td.currentTestId?' selected':''}>${t.name}</option>`).join('');
+  // 有効なテストのみ表示（deletedフラグがないもの）
+  const activeTests=TESTS.filter(t=>!td.deletedTests||!td.deletedTests.includes(t.id));
+  if(!activeTests.length){sel.innerHTML='<option value="">テストがありません</option>';return;}
+  sel.innerHTML=activeTests.map(t=>`<option value="${t.id}"${t.id===td.currentTestId?' selected':''}>${t.name}</option>`).join('');
+  if(!activeTests.find(t=>t.id===td.currentTestId)){
+    td.currentTestId=activeTests[0].id;saveTD(td);
+  }
   sel.value=td.currentTestId;
+  // 削除ボタンエリア
+  const delArea=document.getElementById('t-test-del-area');
+  if(delArea){
+    delArea.innerHTML=activeTests.length>0?`<button class="t-test-del-btn" id="t-test-del">このテストを削除</button>`:'';
+    const btn=document.getElementById('t-test-del');
+    if(btn)btn.addEventListener('click',()=>{
+      const td2=getTD();const cur=td2.currentTestId;
+      const name=TESTS.find(t=>t.id===cur)?.name||cur;
+      if(!confirm(name+'を削除しますか？\n（範囲データも削除されます）'))return;
+      if(!td2.deletedTests)td2.deletedTests=[];
+      td2.deletedTests.push(cur);
+      // 次のアクティブテストに切り替え
+      const next=TESTS.filter(t=>!td2.deletedTests.includes(t.id));
+      td2.currentTestId=next.length?next[0].id:'';
+      saveTD(td2);
+      refreshTestSelector();renderClassList();
+    });
+  }
 }
 // テスト切替のリスナー（直接登録）
 document.body.addEventListener('change',function(e){
@@ -1534,7 +1686,7 @@ function confirmGoal(){
   const inp=document.getElementById('s-target-input');
   if(inp){inp.value=v;updateTargetDiff();}
 }
-function showStudent(){document.getElementById('student').className='screen on';document.getElementById('teacher').className='screen';const td=getTD(),sd=getSD(studentName);document.getElementById('s-testname').textContent='';const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);document.getElementById('s-name-hd').textContent=(g?g.label+' ':'')+studentName+'さん';const stuObj=findStudentById(studentName);const dispName=stuObj?stuObj.name:studentName;document.getElementById('s-name-hd').textContent=(g?gLabel(g)+' / ':'')+dispName+'さん';sOpenSubj=null;renderCountdown();renderSCards();sRecalcBanner();initTargetUI();}
+function showStudent(){document.getElementById('student').className='screen on';document.getElementById('teacher').className='screen';const td=getTD(),sd=getSD(studentName);const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);document.getElementById('s-name-hd').textContent=(g?g.label+' ':'')+studentName+'さん';const stuObj=findStudentById(studentName);const dispName=stuObj?stuObj.name:studentName;document.getElementById('s-name-hd').textContent=(g?gLabel(g)+' / ':'')+dispName+'さん';sOpenSubj=null;renderCountdown();renderSCards();sRecalcBanner();initTargetUI();renderWeakPoints();}
 function getMats(subj,sd){const td=getTD();const gid=sd.groupId;return getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:!m.groupId));}
 function sSubjStats(subj){const sd=getSD(studentName);const mats=getMats(subj,sd);let max=0,total=0;mats.forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});const sp=subjectSpread(mats,sd);return{max,total,mats,count:mats.length,low:Math.max(0,Math.round(total-sp)),high:Math.min(max,Math.round(total+sp))};}
 function updateSCardHeader(subj){
@@ -1542,16 +1694,16 @@ function updateSCardHeader(subj){
   const pct=st.max?st.total/st.max*100:0;
   const allSel=st.mats.length>0&&st.mats.every(m=>getGauge(sd,m.id)!==null);
   const col=scoreColor(pct,allSel);
-  const rng=st.count&&st.low<st.high?`<span class="schd-rng"> (${st.low}〜${st.high})</span>`:'';
+  
   const cards=document.querySelectorAll('.subj-card');
   for(const card of cards){
     const badge=card.querySelector('.schd-badge');
     if(badge&&badge.textContent===subj){
-      badge.style.background=col;
+      // badge color removed (white on blue)
       const bar=card.querySelector('.schd-bar-f');
-      if(bar){bar.style.width=pct+'%';bar.style.background=col;}
+      if(bar){bar.style.width=pct+'%';}
       const score=card.querySelector('.schd-score');
-      if(score)score.innerHTML=`${st.count?Math.round(st.total):'--'}${rng}<span class="dn"> / ${st.max||'--'}</span>`;
+      if(score){score.innerHTML=`${st.count?Math.round(st.total):'--'}点<span class="dn"> / ${st.max||'--'}点</span>`;score.style.background=col;}
       break;
     }
   }
@@ -1560,7 +1712,7 @@ function toggleSCard(subj){
   sOpenSubj=sOpenSubj===subj?null:subj;
   renderSCards();
 }
-function renderSCards(){const td=getTD(),el=document.getElementById('s-cards');el.innerHTML='';const sd=getSD(studentName);const gid=sd.groupId;if(!getCurrentMats().some(m=>gid?m.groupId===gid:!m.groupId)){el.innerHTML='<div class="empty-msg"><b>先生がまだ範囲を登録していません</b></div>';return;}SUBJECTS.forEach(subj=>{const st=sSubjStats(subj);const pct=st.max?st.total/st.max*100:0;const allSel=st.mats.length>0&&st.mats.every(m=>getGauge(sd,m.id)!==null);const col=scoreColor(pct,allSel);const open=sOpenSubj===subj;const card=document.createElement('div');card.className='subj-card'+(open?' open':'');const hd=document.createElement('div');hd.className='subj-card-hd';const rng=st.count&&st.low<st.high?`<span class="schd-rng"> (${st.low}〜${st.high})</span>`:'';hd.innerHTML=`<span class="schd-badge" style="background:${col}">${subj}</span><div class="schd-bar-wrap"><div class="schd-bar-tr"><div class="schd-bar-f" style="width:${pct}%;background:${col}"></div></div></div><span class="schd-score">${st.count?Math.round(st.total):'--'}${rng}<span class="dn"> / ${st.max||'--'}</span></span><span class="schd-car">▶</span>`;hd.addEventListener('click',()=>toggleSCard(subj));card.appendChild(hd);const body=document.createElement('div');body.className='subj-card-body';if(open)buildMatBody(subj,body);card.appendChild(body);el.appendChild(card);});}
+function renderSCards(){const td=getTD(),el=document.getElementById('s-cards');el.innerHTML='';const sd=getSD(studentName);const gid=sd.groupId;if(!getCurrentMats().some(m=>gid?m.groupId===gid:!m.groupId)){el.innerHTML='<div class="empty-msg"><b>先生がまだ範囲を登録していません</b></div>';return;}SUBJECTS.forEach(subj=>{const st=sSubjStats(subj);const pct=st.max?st.total/st.max*100:0;const allSel=st.mats.length>0&&st.mats.every(m=>getGauge(sd,m.id)!==null);const col=scoreColor(pct,allSel);const open=sOpenSubj===subj;const card=document.createElement('div');card.className='subj-card'+(open?' open':'');const hd=document.createElement('div');hd.className='subj-card-hd';hd.innerHTML=`<span class="schd-badge">${subj}</span><div class="schd-bar-wrap"><div class="schd-bar-tr"><div class="schd-bar-f" style="width:${pct}%"></div></div></div><span class="schd-score" style="background:${col}">${st.count?Math.round(st.total):'--'}点<span class="dn"> / ${st.max||'--'}点</span></span><span class="schd-car">▶</span>`;hd.addEventListener('click',()=>toggleSCard(subj));card.appendChild(hd);const body=document.createElement('div');body.className='subj-card-body';if(open)buildMatBody(subj,body);card.appendChild(body);el.appendChild(card);});}
 function buildMatBody(subj,body){
   const sd=getSD(studentName);const mats=getMats(subj,sd);
   if(!mats.length){body.innerHTML='<div class="empty-msg" style="padding:18px">この教科の範囲は未登録です</div>';return;}
