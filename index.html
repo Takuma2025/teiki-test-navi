@@ -18,7 +18,9 @@
     var _db = null; // loadAllFromFirestore で初期化
   </script>
   <!-- ▲ ここまで -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>定期テスト攻略ナビ</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -29,7 +31,10 @@
   --bad:#dc2626; --ok:#2db87c;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--bg2);color:var(--text);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg2);color:var(--text);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+html{overscroll-behavior:none;-webkit-text-size-adjust:100%;height:100%;}
+*{-webkit-touch-callout:none;}
+input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .screen{display:none;}.screen.on{display:block;}
 
 /* ── LOGIN ── */
@@ -603,7 +608,6 @@ html{background:var(--bg2);}
     </div>
     <div class="ferr" id="login-err">IDまたはパスワードが正しくありません</div>
     <button class="login-btn" id="btn-login">ログイン</button>
-    <div id="db-status" style="text-align:center;font-size:11px;margin-top:12px;color:rgba(255,255,255,.6);"></div>
   </div>
 </div>
 
@@ -857,28 +861,20 @@ async function loadAllFromFirestore(){
     }catch(e){console.warn('Firebase init failed:',e);}
   }
 
-  // Firestoreからデータ読み込み（5秒タイムアウト）
+  // Firestoreからデータ読み込み
   if(_db){
     try{
-      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
-      const load=_db.collection('appdata').get().then(snap=>{
-        snap.forEach(doc=>{_store[doc.id]=doc.data().v;});
-        console.log('Firestore: '+snap.size+'件読み込み完了');
-      });
-      await Promise.race([load,timeout]);
+      const snap=await _db.collection('appdata').get();
+      snap.forEach(doc=>{_store[doc.id]=doc.data().v;});
+      console.log('Firestore: '+snap.size+'件読み込み完了');
     }catch(e){
-      console.warn('Firestore読み込みスキップ:',e.message);
+      console.error('Firestore読み込みエラー:',e);
     }
   }
 
   _dbReady=true;
   document.getElementById('loading-screen').style.display='none';
-  // DB接続状態を表示
-  const dbStatus=document.getElementById('db-status');
-  if(dbStatus){
-    if(_db){dbStatus.textContent='☁️ クラウド保存ON';dbStatus.style.color='#16a34a';}
-    else{dbStatus.textContent='📱 このデバイスのみ';dbStatus.style.color='#d97706';}
-  }
+
   initLoginUI();
 }
 
