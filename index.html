@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
   <!-- ▼ Firebase設定（自分のプロジェクト情報に書き換えてください） -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js" async></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js" async></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script>
     // ▼ Firebaseを使う場合は自分の設定に書き換えてください
     const firebaseConfig = {
@@ -15,13 +15,7 @@
       messagingSenderId: "877120920269",
       appId:             "1:877120920269:web:59ce6d1800be6e2dc6e784"
     };
-    let _db = null;
-    try {
-      if(typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY"){
-        firebase.initializeApp(firebaseConfig);
-        _db = firebase.firestore();
-      }
-    } catch(e) { console.warn('Firebase init failed:', e); }
+    var _db = null; // loadAllFromFirestore で初期化
   </script>
   <!-- ▲ ここまで -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -640,7 +634,6 @@ html{background:var(--bg2);}
           <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;flex-shrink:0"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
           テスト範囲登録
         </button>
-        <span id="t-reg-meta" style="margin-left:auto;font-size:11px;color:var(--sub);"></span>
       </div>
       <!-- DASHBOARD -->
       <div style="padding:20px 14px 8px;">
@@ -845,24 +838,35 @@ function lsSet(k, v){
 function lsKeys(){ return Object.keys(_store); }
 
 async function loadAllFromFirestore(){
-  // まずlocalStorageからロード（オフラインでも即起動）
+  // まずlocalStorageからロード（即起動用）
   try{
     for(let i=0;i<localStorage.length;i++){
       const k=localStorage.key(i);if(k)_store[k]=localStorage.getItem(k);
     }
   }catch(e){}
 
-  // Firebaseが使える場合はFirestoreからも読み込む（3秒タイムアウト）
+  // Firebase初期化を試みる
+  if(!_db){
+    try{
+      if(typeof firebase!=='undefined'&&typeof firebaseConfig!=='undefined'&&firebaseConfig.apiKey!=='YOUR_API_KEY'){
+        firebase.initializeApp(firebaseConfig);
+        _db=firebase.firestore();
+        console.log('Firebase初期化完了');
+      }
+    }catch(e){console.warn('Firebase init failed:',e);}
+  }
+
+  // Firestoreからデータ読み込み（5秒タイムアウト）
   if(_db){
     try{
-      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
-      const fetch=_db.collection('appdata').get().then(snap=>{
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
+      const load=_db.collection('appdata').get().then(snap=>{
         snap.forEach(doc=>{_store[doc.id]=doc.data().v;});
-        console.log('Firestore: データ読み込み完了');
+        console.log('Firestore: '+snap.size+'件読み込み完了');
       });
-      await Promise.race([fetch,timeout]);
+      await Promise.race([load,timeout]);
     }catch(e){
-      console.warn('Firestore load skipped:', e.message);
+      console.warn('Firestore読み込みスキップ:',e.message);
     }
   }
 
@@ -1162,7 +1166,6 @@ function showTHome(){
   ['register','class','students'].forEach(r=>{const el=document.getElementById('t-room-'+r);if(el)el.style.display='none';});
   const td=getTD();const groups=td.groups||[];
   const matCount=getCurrentMats().length;
-  document.getElementById('t-reg-meta').textContent=groups.length?groups.length+'クラス / '+matCount+'件':'クラス未登録';
 }
 function renderClassReg(){
   const td=getTD();const groups=(td.groups||[]).slice();
