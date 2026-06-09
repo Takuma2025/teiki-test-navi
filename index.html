@@ -16,7 +16,8 @@ function renderTodo(){
     const gap=m.points-pred;
     return{name:m.name,subject:m.subject,points:m.points,pred,gap,lv};
   }).filter(x=>x.gap>0).sort((a,b)=>b.gap-a.gap).slice(0,5);
-  if(!items.length){list.innerHTML='<div style="padding:8px 0;font-size:13px;color:var(--sub);text-align:center;">すべて順調です！</div>';return;}
+  if(!mats.length){list.innerHTML='<div style="padding:8px 0;font-size:13px;color:var(--sub);text-align:center;">範囲がまだ登録されていません</div>';return;}
+  if(!items.length){list.innerHTML='<div style="padding:8px 0;font-size:13px;color:var(--sub);text-align:center;">すべて満点予想です！</div>';return;}
   list.innerHTML='';
   items.forEach((it,i)=>{
     const item=document.createElement('div');item.className='s-todo-item';
@@ -48,82 +49,7 @@ function predScoreWithBonus(pts,lv){
   return predScore(pts,lv);
 }
 
-let _weakPhotoData=null;
-function compressImage(file,maxW,quality){
-  return new Promise((resolve)=>{
-    const reader=new FileReader();
-    reader.onload=function(e){
-      const img=new Image();
-      img.onload=function(){
-        const canvas=document.createElement('canvas');
-        let w=img.width,h=img.height;
-        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-        canvas.width=w;canvas.height=h;
-        const ctx=canvas.getContext('2d');
-        ctx.drawImage(img,0,0,w,h);
-        resolve(canvas.toDataURL('image/jpeg',quality));
-      };
-      img.src=e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
 
-function renderWeakPoints(){
-  const list=document.getElementById('s-weak-list');if(!list)return;
-  const sd=getSD(studentName);const tid=getTD().currentTestId;
-  const wp=(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].weakPoints)||[];
-  if(!wp.length){list.innerHTML='<div style="font-size:12px;color:var(--sub);padding:4px 0;">まだ登録がありません</div>';return;}
-  list.innerHTML='';
-  wp.forEach((entry,i)=>{
-    const isObj=typeof entry==='object';
-    const txt=isObj?(entry.text||''):(entry||'');
-    const img=isObj?entry.image:null;
-    const chk=isObj?!!entry.checked:false;
-    const item=document.createElement('div');item.className='s-weak-item';
-    item.innerHTML=`<input type="checkbox" class="s-weak-check" data-idx="${i}"${chk?' checked':''}><div style="flex:1;min-width:0;"><span class="s-weak-item-text${chk?' checked':''}">${esc(txt)}</span>${img?`<img class="s-weak-item-img" src="${img}">`:''}${isObj&&entry.addedAt?`<div style="font-size:10px;color:var(--sub);margin-top:2px;">${timeAgo(entry.addedAt)}</div>`:''}</div><button class="s-weak-item-del" data-idx="${i}">×</button>`;
-    list.appendChild(item);
-  });
-  list.querySelectorAll('.s-weak-check').forEach(cb=>{
-    cb.addEventListener('change',()=>{
-      const idx=parseInt(cb.dataset.idx);
-      const sd2=getSD(studentName);const tid2=getTD().currentTestId;
-      const wp2=sd2.byTest[tid2].weakPoints;
-      if(typeof wp2[idx]==='string')wp2[idx]={text:wp2[idx],checked:cb.checked};
-      else wp2[idx].checked=cb.checked;
-      saveSD(studentName,sd2);
-      renderWeakPoints();
-    });
-  });
-  list.querySelectorAll('.s-weak-item-del').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=parseInt(btn.dataset.idx);
-      const sd2=getSD(studentName);const tid2=getTD().currentTestId;
-      if(sd2.byTest&&sd2.byTest[tid2]&&sd2.byTest[tid2].weakPoints){
-        sd2.byTest[tid2].weakPoints.splice(idx,1);
-        saveSD(studentName,sd2);
-        renderWeakPoints();
-      }
-    });
-  });
-}
-function addWeakPoint(){
-  const inp=document.getElementById('s-weak-input');if(!inp)return;
-  const txt=inp.value.trim();
-  if(!txt&&!_weakPhotoData)return;
-  const sd=getSD(studentName);const tid=getTD().currentTestId;
-  if(!sd.byTest)sd.byTest={};
-  if(!sd.byTest[tid])sd.byTest[tid]={gauge:{},target:null,lastUpdated:null};
-  if(!sd.byTest[tid].weakPoints)sd.byTest[tid].weakPoints=[];
-  const entry=_weakPhotoData?{text:txt,image:_weakPhotoData,addedAt:new Date().toISOString(),checked:false}:{text:txt,addedAt:new Date().toISOString(),checked:false};
-  sd.byTest[tid].weakPoints.push(entry);
-  sd.byTest[tid].lastUpdated=new Date().toISOString();
-  sd.lastUpdated=sd.byTest[tid].lastUpdated;
-  saveSD(studentName,sd);
-  inp.value='';_weakPhotoData=null;
-  document.getElementById('s-weak-preview').style.display='none';
-  renderWeakPoints();
-}
 
     // ▼ Firebaseを使う場合は自分の設定に書き換えてください
     const firebaseConfig = {
@@ -140,7 +66,7 @@ function addWeakPoint(){
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>定期テスト攻略ナビ</title>
+<title>定期テスト完成度チェック＆予想得点シミュレーションシステム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -151,19 +77,23 @@ function addWeakPoint(){
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--bg2);color:var(--text);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;overflow-x:hidden;}
-html{overscroll-behavior:none;-webkit-text-size-adjust:100%;height:100%;overflow-x:hidden;}
+html{overscroll-behavior:none;-webkit-text-size-adjust:100%;height:100%;overflow-x:hidden;background:var(--blue);}
 *{-webkit-touch-callout:none;}
 input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .screen{display:none;}.screen.on{display:block;}
 
 /* ── LOGIN ── */
-#login{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--blue);padding:40px 24px;z-index:200;overflow-y:auto;}
+#login{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--blue);padding:40px 24px;box-sizing:border-box;}
 .gear-btn{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:16px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.75);cursor:pointer;padding:7px 13px;border-radius:20px;transition:.2s;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;letter-spacing:.04em;}
 .gear-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff;}
 .gear-btn svg{width:14px;height:14px;fill:currentColor;flex-shrink:0;}
 .login-avatar{width:90px;height:90px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px;border:2px solid rgba(255,255,255,.3);}
 .login-avatar svg{width:52px;height:52px;fill:rgba(255,255,255,.9);}
-.login-title{font-size:22px;font-weight:700;color:#fff;letter-spacing:.04em;margin-bottom:32px;text-align:center;}
+.login-title-wrap{text-align:center;margin-bottom:32px;}
+.login-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.2em;color:rgba(255,255,255,.6);text-transform:uppercase;border:1px solid rgba(255,255,255,.3);padding:3px 10px;border-radius:20px;margin-bottom:12px;}
+.login-title{font-size:13px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.08em;margin-bottom:6px;text-align:center;}
+.login-title-main{font-size:26px;font-weight:800;color:#fff;letter-spacing:.02em;text-align:center;line-height:1.3;}
+.login-title-main span{color:rgba(255,255,255,.5);font-size:18px;font-weight:400;display:block;margin-top:2px;}
 .login-form-wrap{width:100%;max-width:340px;display:flex;flex-direction:column;gap:14px;}
 .login-field{display:flex;align-items:center;background:rgba(255,255,255,.15);border-radius:12px;padding:0 16px;border:1.5px solid rgba(255,255,255,.25);transition:.2s;}
 .login-field:focus-within{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55);}
@@ -333,7 +263,7 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .subj-mini-val{font-family:'Roboto Mono',monospace;font-size:11px;color:rgba(255,255,255,.75);white-space:nowrap;min-width:54px;text-align:right;}
 
 /* ── STUDENT SUBJECT CARD ── */
-.subj-card{background:#fff;margin-bottom:8px;border-radius:10px;overflow:hidden;}
+.subj-card{background:#fff;margin-bottom:8px;margin-left:12px;margin-right:12px;border-radius:10px;overflow:hidden;border:1px solid var(--border);}
 .subj-card-hd{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;transition:.12s;background:var(--blue);}
 .subj-card-hd:active{background:#004a8f;}
 .subj-card.open .subj-card-hd{background:var(--blue);}
@@ -347,13 +277,13 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .schd-rng{font-size:10px;color:rgba(255,255,255,.6);}
 .schd-car{font-size:10px;color:rgba(255,255,255,.7);transition:transform .2s;flex-shrink:0;}
 .subj-card.open .schd-car{transform:rotate(90deg);}
-.subj-card-body{display:none;border-top:1px solid var(--border);padding:10px 12px;background:var(--bg2);}
+.subj-card-body{display:none;border-top:1px solid var(--border);}
 .subj-card.open .subj-card-body{display:block;animation:fadeIn .15s ease;}
 .mat-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--border);}
 .mat-item:last-child{border-bottom:none;}
 .mat-item-info{flex:1;min-width:0;}
 .mat-item-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.mat-item-sel{}
+.mat-item-sel{display:block;margin-top:4px;}
 .mat-sel{font-family:'Noto Sans JP',sans-serif;font-size:11px;font-weight:600;color:var(--text);background-color:#fff;border:1px solid var(--border);border-radius:6px;padding:5px 28px 5px 10px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 6 5-6' stroke='%23475569' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;width:100%;max-width:260px;transition:.15s;}
 .mat-sel option{color:var(--text);background:#fff;font-weight:400;}
 .mat-pred{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:500;color:var(--blue);flex-shrink:0;white-space:nowrap;}
@@ -458,27 +388,27 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 
 /* ── CALENDAR ── */
 .cal-card{background:#fff;margin-bottom:8px;padding:14px 16px;}
-.cal-months{display:flex;gap:20px;flex-wrap:wrap;}
-.cal-section{flex:1;min-width:130px;}
-.cal-sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.cal-month-lbl{font-size:12px;font-weight:500;color:var(--text);}
-.cal-countdown{font-size:11px;font-weight:500;color:var(--blue);background:var(--blue-lt);padding:2px 9px;border-radius:20px;}
-.cal-countdown.urgent{color:#e05050;background:#fff5f5;}
-.cal-countdown.warning{color:#d97706;background:#fffbeb;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}
-.cal-dow{text-align:center;font-size:9px;color:var(--sub);padding:2px 0;font-weight:500;}
-.cal-dow.sun{color:#e05050;}.cal-dow.sat{color:var(--blue);}
-.cal-day{display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:50%;width:26px;height:26px;margin:0 auto;color:var(--text);}
-.cal-day.sun{color:#e05050;}.cal-day.sat{color:var(--blue);}
-.cal-day.other-m{color:#d0d5dd;}
-.cal-day.between{background:var(--blue-lt);color:var(--blue);border-radius:0;width:100%;margin:0;}
-.cal-day.bt-first{border-radius:50% 0 0 50%;margin-left:auto;width:26px;}
-.cal-day.bt-last{border-radius:0 50% 50% 0;margin-right:auto;width:26px;}
-.cal-day.today{background:var(--blue) !important;color:#fff !important;font-weight:700;border-radius:50%;width:26px;margin:0 auto;}
-.cal-day.testday{background:#e05050 !important;color:#fff !important;font-weight:700;border-radius:50%;width:26px;margin:0 auto;}
-.cal-legend{display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
-.cal-leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--sub);}
-.cal-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* ── STU LIST (teacher) ── */
 .stu-row-t{background:#fff;border-bottom:1px solid var(--border);}
@@ -515,8 +445,13 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .stu-cv{font-size:10px;color:#c5cdd8;transition:transform .2s;}
 .stu-row-t.open .stu-cv{transform:rotate(90deg);}
 .stu-det{display:none;border-top:1px solid var(--border);background:var(--bg2);}
-.stu-detail-hero{background:#fff;padding:22px 18px 20px;border-bottom:1px solid var(--border);}
-.stu-detail-name{font-size:22px;font-weight:600;color:var(--text);margin-bottom:10px;letter-spacing:.02em;}
+.stu-detail-hero{background:#fff;padding:18px 18px 16px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.stu-detail-id{font-size:18px;font-weight:700;color:var(--text);font-family:'Roboto Mono',monospace;margin-bottom:8px;}
+.stu-detail-subj-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.stu-hero-badge{display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-width:48px;}
+.stu-hero-subj-lbl{font-size:10px;color:var(--sub);font-weight:600;margin-bottom:3px;}
+.stu-hero-subj-score{font-family:'Roboto Mono',monospace;font-size:17px;font-weight:700;}
+.stu-detail-class-lbl{font-size:13px;font-weight:600;color:var(--blue);background:var(--blue-lt);padding:3px 10px;border-radius:6px;}
 .stu-detail-meta{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
 .stu-detail-class{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--blue);background:var(--blue-lt);border:1px solid var(--blue-pale);border-radius:6px;padding:3px 10px;font-weight:500;}
 .stu-detail-time{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--sub);}
@@ -528,6 +463,7 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .stu-detail-score-num{font-family:'Roboto Mono',monospace;font-size:38px;font-weight:700;color:var(--blue);line-height:1;}
 .stu-detail-score-max{font-family:'Roboto Mono',monospace;font-size:15px;color:#b0bac8;}
 .stu-detail-score-unit{font-size:13px;color:var(--sub);}
+
 .stu-detail-subj{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,40,100,.06);}
 .stu-detail-subj-head{background:var(--blue);padding:11px 16px;display:flex;align-items:center;gap:12px;}
 .stu-detail-subj-name{font-size:15px;font-weight:700;color:#fff;width:36px;flex-shrink:0;}
@@ -617,30 +553,30 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .btn-modal-ok:hover{background:#004a8f;}
 .t-test-del-btn{background:none;border:1px solid #fca5a5;color:#dc2626;font-size:11px;font-weight:500;padding:4px 10px;border-radius:16px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
 .t-test-del-btn:hover{background:#fef2f2;}
-.s-weak-section{margin-top:4px;}
-.s-weak-body{background:#fff;padding:12px 16px;overflow:hidden;}
-.s-weak-input-row{display:flex;gap:6px;margin-top:8px;width:100%;box-sizing:border-box;}
-.s-weak-input{flex:1;min-width:0;font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;outline:none;transition:.15s;box-sizing:border-box;}
-.s-weak-input:focus{border-color:var(--blue);}
-.s-weak-input::placeholder{color:#cbd5e1;}
-.s-weak-add-btn{background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;flex-shrink:0;}
-.s-weak-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
-.s-weak-item:last-child{border-bottom:none;}
-.s-weak-item-text{flex:1;font-size:13px;color:var(--text);}
-.s-weak-item-text.checked{text-decoration:line-through;color:var(--sub);}
-.s-weak-check{width:18px;height:18px;border:1.5px solid var(--border);border-radius:4px;cursor:pointer;flex-shrink:0;margin-top:1px;-webkit-appearance:none;appearance:none;background:#fff;transition:.15s;}
-.s-weak-check:checked{background:var(--blue);border-color:var(--blue);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' fill='%23fff'/%3E%3C/svg%3E");background-size:14px;background-repeat:no-repeat;background-position:center;}
+
+
+
+
+
+
+
+
+
+
+
+
+
 .s-weak-item-del{background:none;border:none;cursor:pointer;color:#d1d5db;padding:4px;transition:.15s;font-size:16px;}
 .s-weak-item-del:hover{color:#ef4444;}
-.s-weak-photo-btn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--bg2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;flex-shrink:0;transition:.15s;}
-.s-weak-photo-btn:hover{border-color:var(--blue);background:var(--blue-lt);}
-.s-weak-photo-btn svg{width:18px;height:18px;fill:var(--sub);}
-.s-weak-preview{position:relative;margin-bottom:8px;display:inline-block;}
-.s-weak-preview img{max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);}
-.s-weak-preview-del{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
-.s-weak-item-img{max-width:100%;max-height:180px;border-radius:6px;margin-top:6px;border:1px solid var(--border);}
 
-.iwork-row{padding:10px 14px;border-top:1px solid var(--border);background:#fafafa;}
+
+
+
+
+
+
+
+.iwork-row{padding:10px 14px;border-top:1px solid var(--border);background:#fff;}
 .iwork-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:2px solid var(--border);border-radius:10px;background:#fff;transition:.2s;font-size:0;user-select:none;-webkit-user-select:none;}
 .iwork-toggle:active{transform:scale(.98);}
 .iwork-toggle.on{background:#eff6ff;border-color:#60a5fa;}
@@ -653,15 +589,18 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .iwork-toggle.on .iwork-label{color:#3b82f6;}
 .iwork-pts{font-size:12px;font-weight:700;color:var(--sub);margin-left:auto;flex-shrink:0;transition:.2s;}
 .iwork-toggle.on .iwork-pts{color:#3b82f6;}
-.s-todo-card{margin:12px 12px 0;border-radius:14px;overflow:hidden;background:#fff;border:2px solid var(--blue);box-shadow:0 2px 10px rgba(0,92,172,.1);}
-.s-todo-btn{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:#fff;border:none;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-align:left;transition:.15s;}
-.s-todo-btn:active{background:var(--bg2);}
+.s-todo-card{margin:12px 12px 0;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#f0f7ff 0%,#e8f0fe 100%);border:1.5px solid #93c5fd;}
+.s-todo-btn{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;background:transparent;border:none;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-align:left;transition:.15s;}
+.s-todo-btn:active{opacity:.85;}
+.s-todo-ai-icon{font-size:22px;color:var(--blue);flex-shrink:0;animation:aiPulse 2.5s ease-in-out infinite;}
+@keyframes aiPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.15)}}
 .s-todo-btn-text{flex:1;}
-.s-todo-btn-title{display:block;font-size:14px;font-weight:700;color:var(--text);}
-.s-todo-btn-sub{display:block;font-size:11px;color:var(--sub);margin-top:2px;}
-.s-todo-btn-arrow{font-size:12px;color:var(--blue);transition:transform .2s;flex-shrink:0;}
+.s-todo-priority{display:block;font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px;}
+.s-todo-btn-title{display:block;font-size:15px;font-weight:700;color:var(--text);}
+.s-todo-btn-arrow{font-size:11px;color:var(--blue);transition:transform .2s;flex-shrink:0;background:rgba(0,92,172,.1);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
 .s-todo-btn-arrow.open{transform:rotate(90deg);}
-.s-todo-body{padding:4px 16px 14px;}
+.s-todo-body{padding:4px 16px 16px;}
+.s-todo-total{font-size:13px;font-weight:700;color:#fff;margin-bottom:10px;padding:8px 12px;background:rgba(255,255,255,.12);border-radius:8px;text-align:center;}
 .s-todo-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
 .s-todo-item:last-child{border-bottom:none;}
 .s-todo-rank{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;color:var(--blue);flex-shrink:0;width:22px;text-align:center;}
@@ -671,6 +610,35 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .s-todo-gap{flex-shrink:0;text-align:right;}
 .s-todo-gap-lbl{font-size:9px;color:var(--blue);font-weight:600;letter-spacing:.05em;}
 .s-todo-gap-num{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;color:var(--blue);}
+.sr-section{margin-bottom:14px;}
+.sr-section-hd{display:flex;align-items:center;font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;padding:0 4px 6px;border-bottom:2px solid var(--blue);margin-bottom:6px;}
+.sr-section-count{margin-left:auto;font-size:11px;font-weight:500;color:var(--sub);}
+.sr-stu-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border-radius:8px;border:1px solid var(--border);margin-bottom:6px;}
+.sr-stu-id{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:600;color:var(--text);flex:1;}
+.sr-stu-pw{font-size:11px;color:var(--sub);font-family:'Roboto Mono',monospace;flex-shrink:0;}
+.sr-del-btn{background:none;border:none;cursor:pointer;color:#d1d5db;font-size:16px;padding:2px 6px;flex-shrink:0;transition:.15s;border-radius:4px;}
+.sr-del-btn:hover{color:#ef4444;background:#fef2f2;}
+.mat-adj-gear{background:none;border:1.5px solid var(--border);border-radius:6px;padding:5px 7px;cursor:pointer;color:var(--sub);transition:.15s;flex-shrink:0;display:flex;align-items:center;}
+.mat-adj-gear:hover{background:var(--bg2);color:var(--text);}
+.mat-pct-input-wrap{flex-direction:column;gap:6px;margin-top:6px;padding:10px 12px;background:var(--blue-lt);border-radius:8px;border:1px solid var(--blue-pale);}
+.mat-pct-label{font-size:11px;font-weight:700;color:var(--blue);}
+.mat-pct-hint{display:block;font-size:10px;font-weight:400;color:var(--sub);margin-top:1px;}
+.mat-pct-row{display:flex;align-items:center;gap:6px;}
+.mat-pct-input{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:700;color:var(--text);padding:6px 10px;border:1.5px solid var(--blue);border-radius:7px;outline:none;text-align:center;width:72px;background:#fff;}
+.mat-pct-unit{font-size:13px;font-weight:600;color:var(--sub);}
+.cd-inner{margin:4px 0 8px;padding:14px 16px;background:rgba(0,0,0,.18);border-radius:12px;border:1px solid rgba(255,255,255,.15);}
+.cd-header{display:flex;align-items:center;gap:6px;margin-bottom:8px;}.cd-clock-icon{width:14px;height:14px;fill:rgba(255,255,255,.6);flex-shrink:0;}.cd-top-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,.7);}
+.cd-row{display:flex;align-items:flex-end;gap:2px;}
+.cd-block{display:flex;flex-direction:column;align-items:center;min-width:36px;}
+.cd-comma{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding-bottom:2px;}
+.cd-num{font-family:'Roboto Mono',monospace;font-size:22px;font-weight:700;color:#fff;line-height:1;}
+.cd-num.big{font-size:42px;}
+.cd-cs{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:rgba(255,255,255,.6);line-height:1;}
+.cd-colon{font-size:18px;font-weight:700;color:rgba(255,255,255,.5);padding-bottom:8px;padding-left:1px;padding-right:1px;}
+.cd-colon.big{font-size:28px;padding-bottom:14px;}
+.cd-unit{font-size:9px;color:rgba(255,255,255,.5);font-weight:600;margin-top:3px;}
+.cd-msg{font-size:12px;font-weight:700;color:rgba(255,255,255,.9);margin-top:8px;}
+.cd-over{font-size:18px;font-weight:700;color:#fff;padding:8px 0;}
 /* ── RESPONSIVE (タブレット・PC対応) ── */
 html{background:var(--bg2);}
 
@@ -736,7 +704,7 @@ html{background:var(--bg2);}
 
 <!-- PIN MODAL -->
 <div id="loading-screen" style="position:fixed;inset:0;background:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;">
-  <div style="font-size:22px;font-weight:700;color:#fff;">定期テスト攻略ナビ</div>
+  <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px;">STUDY SYSTEM</div><div style="font-size:20px;font-weight:800;color:#fff;text-align:center;line-height:1.4;">定期テスト完成度チェック<br><span style="font-size:13px;font-weight:400;color:rgba(255,255,255,.6);">＆ 予想得点シミュレーション</span></div>
   <div style="display:flex;gap:6px;">
     <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);animation:ldot 1.2s infinite .0s both"></span>
     <span style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.9);animation:ldot 1.2s infinite .2s both"></span>
@@ -778,7 +746,10 @@ html{background:var(--bg2);}
 <!-- LOGIN -->
 <div id="login" class="screen on">
   <button class="gear-btn" id="gear-btn" title="先生ログイン"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 14c-2.67 0-5.11-1.28-6.6-3.47C6.83 13.8 9.32 13 12 13s5.17.8 6.6 2.53C17.11 17.72 14.67 19 12 19z"/></svg>TEACHER</button>
-  <div class="login-title">定期テスト攻略ナビ</div>
+  <div class="login-title-wrap">
+    <div class="login-badge">STUDY SYSTEM</div>
+    <div class="login-title-main">定期テスト<br>完成度チェック<span>＆ 予想得点シミュレーション</span></div>
+  </div>
   <div class="login-form-wrap">
     <div class="login-field">
       <input class="login-field-input" id="id-input" type="text" placeholder="ID" autocomplete="off">
@@ -822,12 +793,13 @@ html{background:var(--bg2);}
         <button class="t-mini-btn" id="t-pw-change" style="margin-left:auto;">PW変更</button>
       </div>
       <!-- DASHBOARD -->
-      <div style="padding:20px 14px 8px;">
-        <div style="font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:8px;">DASHBOARD</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="font-size:16px;font-weight:600;color:var(--text);">生徒の学習状況</div>
-          <div style="font-size:11px;color:var(--sub);" id="t-dash-test"></div>
+      <div style="padding:16px 14px 8px;">
+        <div style="font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:10px;">DASHBOARD</div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:5px;font-weight:600;">対象テスト</div>
+          <select id="t-dash-test-select" class="fsel" style="font-size:14px;font-weight:600;color:var(--blue);width:100%;"></select>
         </div>
+        <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:2px;">生徒の学習状況</div>
       </div>
       <div id="t-dash-filter-bar" style="background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 16px;overflow-x:auto;display:flex;gap:8px;"></div>
       <div style="padding:12px 14px 80px"><div id="t-dash-list"></div></div>
@@ -837,7 +809,6 @@ html{background:var(--bg2);}
       <div style="background:#fff;padding:14px 16px;border-bottom:1px solid var(--border);">
         <div style="font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:6px;">テストを選択</div>
         <select id="t-test-select" class="fsel" style="font-size:15px;font-weight:600;color:var(--blue);"></select>
-        <div id="t-test-del-area" style="margin-top:8px;"></div>
       </div>
       <div class="page-title">クラスを選択して範囲を登録</div>
       <div class="t-class-card">
@@ -973,7 +944,7 @@ html{background:var(--bg2);}
           </div>
         </div>
       </div>
-      <div class="score-lbl">予想得点</div>
+      <div class="score-lbl">完成度からの予想得点</div>
       <div class="sim-pending" id="sim-pending">
         <div class="sim-bars"><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span><span class="sim-bar"></span></div>
         <div class="sim-label">分析中</div>
@@ -996,11 +967,18 @@ html{background:var(--bg2);}
       <div class="score-disclaimer">あくまでシミュレーション得点です。<br>実際にこの点数になるわけではありません。</div>
       <span id="s-target-diff" style="display:none"></span>
 
+      <div id="s-cal-card" style="display:none;"></div>
     </div>
-    <div class="cal-card" id="s-cal-card" style="display:none"></div>
+    <div class="s-section-title-wrap">
+      <div class="s-section-title">完成度チェック</div>
+      <div class="s-section-sub">テスト範囲表の内容を、1つずつ仕上げていこう。各項目が今どのレベルまでできているかを記録しましょう。</div>
+    </div>
+    <div id="s-cards"></div>
     <div class="s-todo-card" id="s-todo-card">
       <button class="s-todo-btn" id="s-todo-btn">
+        <span class="s-todo-ai-icon">✦</span>
         <span class="s-todo-btn-text">
+          <span class="s-todo-priority">すぐに取り組むべき！</span>
           <span class="s-todo-btn-title">伸びしろの大きい範囲を確認</span>
         </span>
         <span class="s-todo-btn-arrow" id="s-todo-arrow">▶</span>
@@ -1009,32 +987,7 @@ html{background:var(--bg2);}
         <div id="s-todo-list"></div>
       </div>
     </div>
-    <div class="s-section-title-wrap">
-      <div class="s-section-title">完成度チェック</div>
-      <div class="s-section-sub">テスト範囲表の内容を、1つずつ仕上げていこう。各項目が今どのレベルまでできているかを記録しましょう。</div>
-    </div>
-    <div id="s-cards"></div>
-    <div class="s-weak-section" id="s-weak-section">
-      <div class="s-section-title-wrap">
-        <div class="s-section-title">苦手・わからない単元・問題</div>
-        <div class="s-section-sub">苦手な単元やわからない問題を記録しよう。</div>
-      </div>
-      <div class="s-weak-body">
-        <div id="s-weak-list"></div>
-        <div id="s-weak-preview" class="s-weak-preview" style="display:none;">
-          <img id="s-weak-preview-img">
-          <button class="s-weak-preview-del" id="s-weak-preview-del">×</button>
-        </div>
-        <div class="s-weak-input-row">
-          <input class="s-weak-input" id="s-weak-input" type="text" placeholder="例：二次方程式の文章題">
-          <label class="s-weak-photo-btn" id="s-weak-photo-label">
-            <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
-            <input type="file" accept="image/*" id="s-weak-file" style="display:none;">
-          </label>
-          <button class="s-weak-add-btn" id="s-weak-add">追加</button>
-        </div>
-      </div>
-    </div>
+
   </div>
 </div>
 
@@ -1105,7 +1058,7 @@ function defaultTD(){
 }
 const PRESETS=[
   {v:5,  symbol:'×', label:'まだ手をつけていない',                        color:'#dc2626', bg:'#fef2f2', bd:'#fca5a5'},
-  {v:40, symbol:'△', label:'とりあえず1周しただけ',                       color:'#eab308', bg:'#fefce8', bd:'#fde047'},
+  {v:40, symbol:'△', label:'とりあえず1周しただけ',                       color:'#ca8a04', bg:'#fefce8', bd:'#fde047'},
   {v:60, symbol:'○', label:'くりかえし解いて基本・標準問題は解ける',        color:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
   {v:80, symbol:'◎', label:'くりかえし解いて応用問題も解ける',              color:'#16a34a', bg:'#f0fdf4', bd:'#bbf7d0'},
   {v:95, symbol:'★', label:'何も見ずにほぼ完ぺきにできることを確認した',    color:'#005cac', bg:'#eef5fc', bd:'#cce0f5'}
@@ -1199,21 +1152,9 @@ document.getElementById('s-todo-btn').addEventListener('click',function(){
   arrow.classList.toggle('open',!isOpen);
   if(!isOpen)renderTodo();
 });
-document.getElementById('s-weak-add').addEventListener('click',addWeakPoint);
-document.getElementById('s-weak-file').addEventListener('change',async function(){
-  if(!this.files||!this.files[0])return;
-  const data=await compressImage(this.files[0],600,0.6);
-  _weakPhotoData=data;
-  const prev=document.getElementById('s-weak-preview');
-  document.getElementById('s-weak-preview-img').src=data;
-  prev.style.display='inline-block';
-  this.value='';
-});
-document.getElementById('s-weak-preview-del').addEventListener('click',()=>{
-  _weakPhotoData=null;
-  document.getElementById('s-weak-preview').style.display='none';
-});
-document.getElementById('s-weak-input').addEventListener('keydown',e=>{if(e.key==='Enter')addWeakPoint();});
+
+
+
 document.getElementById('t-pw-change').addEventListener('click',()=>{
   document.getElementById('pw-old').value='';
   document.getElementById('pw-new1').value='';
@@ -1300,24 +1241,7 @@ function refreshTestSelector(){
     td.currentTestId=activeTests[0].id;saveTD(td);
   }
   sel.value=td.currentTestId;
-  // 削除ボタンエリア
-  const delArea=document.getElementById('t-test-del-area');
-  if(delArea){
-    delArea.innerHTML=activeTests.length>0?`<button class="t-test-del-btn" id="t-test-del">このテストを削除</button>`:'';
-    const btn=document.getElementById('t-test-del');
-    if(btn)btn.addEventListener('click',()=>{
-      const td2=getTD();const cur=td2.currentTestId;
-      const name=TESTS.find(t=>t.id===cur)?.name||cur;
-      if(!confirm(name+'を削除しますか？\n（範囲データも削除されます）'))return;
-      if(!td2.deletedTests)td2.deletedTests=[];
-      td2.deletedTests.push(cur);
-      // 次のアクティブテストに切り替え
-      const next=TESTS.filter(t=>!td2.deletedTests.includes(t.id));
-      td2.currentTestId=next.length?next[0].id:'';
-      saveTD(td2);
-      refreshTestSelector();renderClassList();
-    });
-  }
+
 }
 // テスト切替のリスナー（直接登録）
 document.body.addEventListener('change',function(e){
@@ -1329,24 +1253,44 @@ document.body.addEventListener('change',function(e){
 });
 function renderDashboard(){
   const td=getTD();
-  const tEl=document.getElementById('t-dash-test');if(tEl)tEl.textContent=getCurrentTest().name;
+  const sel=document.getElementById('t-dash-test-select');
+  if(sel&&!sel._wired){
+    sel._wired=true;
+    sel.innerHTML=TESTS.map(t=>`<option value="${t.id}"${t.id===td.currentTestId?' selected':''}>${t.name}</option>`).join('');
+    sel.addEventListener('change',function(){
+      const td2=getTD();td2.currentTestId=this.value;saveTD(td2);
+      renderDashboard();
+    });
+  } else if(sel){
+    sel.value=td.currentTestId;
+  }
   renderDashFilterBar();renderDashList();
 }
 function renderDashFilterBar(){
   const bar=document.getElementById('t-dash-filter-bar');if(!bar)return;
   const td=getTD();const groups=td.groups||[];const sts=getAllStudents();
-  const counts={};sts.forEach(n=>{const sd=getSD(n);const gid=sd.groupId||'none';counts[gid]=(counts[gid]||0)+1;});
   bar.innerHTML='';
   const makeBtn=(label,count,filterVal)=>{
     const btn=document.createElement('button');
-    const isActive=filterVal===tStudentFilter||(filterVal===null&&tStudentFilter===null);
+    const isActive=JSON.stringify(filterVal)===JSON.stringify(tStudentFilter);
     btn.className='stu-filter-btn'+(isActive?' active':'');
     btn.innerHTML=label+`<span class="stu-filter-count">${count}</span>`;
     btn.addEventListener('click',()=>{tStudentFilter=filterVal;renderDashboard();});
     bar.appendChild(btn);
   };
   makeBtn('全員',sts.length,null);
-  groups.forEach(g=>{const c=counts[g.id]||0;if(c===0)return;makeBtn(gBadgeHtml(g),c,g.id);});
+  // 学年ごとに集計
+  const grades=['中1','中2','中3'];
+  grades.forEach(grade=>{
+    const gradeGroups=groups.filter(g=>g.grade===grade);
+    if(!gradeGroups.length)return;
+    const gradeStudents=sts.filter(n=>{
+      const sd=getSD(n);
+      return gradeGroups.some(g=>g.id===sd.groupId);
+    });
+    if(!gradeStudents.length)return;
+    makeBtn(grade,gradeStudents.length,{grade});
+  });
 }
 function getStudentSubjScores(sd){
   const gid=sd.groupId;
@@ -1367,7 +1311,14 @@ function getStudentSubjScores(sd){
 function renderDashList(){
   const el=document.getElementById('t-dash-list');if(!el)return;
   const allSts=getAllStudents();const td=getTD();
-  const sts=tStudentFilter===null?allSts:allSts.filter(n=>{const sd=getSD(n);return sd.groupId===tStudentFilter;});
+  const sts=tStudentFilter===null?allSts:allSts.filter(n=>{
+    const sd=getSD(n);const td2=getTD();
+    if(tStudentFilter&&tStudentFilter.grade){
+      const g=(td2.groups||[]).find(gr=>gr.id===sd.groupId);
+      return g&&g.grade===tStudentFilter.grade;
+    }
+    return sd.groupId===tStudentFilter;
+  });
   if(!sts.length){el.innerHTML='<div class="empty-msg">'+(tStudentFilter?'このクラスの生徒はまだいません':'まだ生徒が登録されていません')+'</div>';return;}
   el.innerHTML='';
   const groups=td.groups||[];
@@ -1396,8 +1347,7 @@ function renderDashList(){
       const tid=td.currentTestId;
       const lastU=sd.byTest&&sd.byTest[tid]?sd.byTest[tid].lastUpdated:sd.lastUpdated;
       const ago=timeAgo(lastU);
-      const wpCount=(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].weakPoints)||[];
-      const wpNew=wpCount.filter(w=>typeof w==='object'&&!w.checked).length;
+      
       const isFresh=lastU&&(Date.now()-new Date(lastU).getTime())<86400000;
       const totalColor=scores.allSel?scoreColor(scores.max?scores.total/scores.max*100:0,true):'#9ca3af';
       const row=document.createElement('div');row.className='dash-tr dash-trow';
@@ -1408,7 +1358,7 @@ function renderDashList(){
         const col=sv.allSel?scoreColor(sv.max?sv.score/sv.max*100:0,true):'#9ca3af';
         return`<div class="dash-td-subj"><span class="dash-subj-val" style="background:${col}">${sv.allSel?sv.score:'?'}</span></div>`;
       }).join('');
-      row.innerHTML=`<div class="dash-td-name"><span class="dash-name">${esc((findStudentById(name)||{}).name||name)}</span></div><div class="dash-td-total"><span class="dash-total-val" style="color:${totalColor}">${scores.allSel?scores.total:'--'}</span><span class="dash-total-max"> /500</span></div>${subjCells}<div class="dash-td-time"><span class="dash-time${isFresh?' fresh':''}">${ago}</span>${wpNew?`<span style="background:#dc2626;color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;margin-left:4px;">苦手${wpNew}</span>`:''}</div>`;
+      row.innerHTML=`<div class="dash-td-name"><span class="dash-name">${esc((findStudentById(name)||{}).name||name)}</span></div><div class="dash-td-total"><span class="dash-total-val" style="color:${totalColor}">${scores.allSel?scores.total:'--'}</span><span class="dash-total-max"> /500</span></div>${subjCells}<div class="dash-td-time"><span class="dash-time${isFresh?' fresh':''}">${ago}</span></div>`;
       row.addEventListener('click',()=>enterStudentDetail(name));
       tbl.appendChild(row);
     });
@@ -1563,59 +1513,43 @@ function renderCountdown(){
   const sd=getSD(studentName);const td=getTD();
   const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);
   if(!g||!g.testDate){el.style.display='none';return;}
+  const testD=new Date(g.testDate);testD.setHours(0,0,0,0);
+  if(new Date()>=testD){el.style.display='none';return;}
   el.style.display='';
 
-  const today=new Date();today.setHours(0,0,0,0);
-  const testD=new Date(g.testDate);testD.setHours(0,0,0,0);
-  const diffDays=Math.round((testD-today)/(864e5));
-  const MN=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  const DOW=['日','月','火','水','木','金','土'];
-
-  let cdCls='cal-countdown',cdTxt='';
-  if(diffDays<0){cdTxt='テスト終了';cdCls='cal-countdown';}
-  else if(diffDays===0){cdTxt='今日テスト！';cdCls='cal-countdown urgent';}
-  else if(diffDays<=3){cdTxt='あと'+diffDays+'日🔥';cdCls='cal-countdown urgent';}
-  else if(diffDays<=7){cdTxt='あと'+diffDays+'日⚡';cdCls='cal-countdown warning';}
-  else{cdTxt='あと'+diffDays+'日';}
-
-  function makeMonth(year,month){
-    const first=new Date(year,month,1).getDay();
-    const last=new Date(year,month+1,0).getDate();
-    let rows='';
-    DOW.forEach((d,i)=>{rows+=`<div class="cal-dow${i===0?' sun':i===6?' sat':''}">${d}</div>`;});
-    let col=first;
-    for(let i=0;i<first;i++)rows+='<div></div>';
-    for(let d=1;d<=last;d++){
-      const cur=new Date(year,month,d);
-      const isToday=cur.getTime()===today.getTime();
-      const isTest=cur.getTime()===testD.getTime();
-      const dow=cur.getDay();
-      let cls='cal-day';
-      if(isToday&&isTest)cls+=' today testday';
-      else if(isToday)cls+=' today';
-      else if(isTest)cls+=' testday';
-      else if(dow===0)cls+=' sun';
-      else if(dow===6)cls+=' sat';
-      rows+=`<div class="${cls}">${d}</div>`;
-      col++;
-    }
-    return`<div class="cal-section"><div class="cal-sec-head"><span class="cal-month-lbl">${MN[month]} ${year}</span>${month===testD.getMonth()&&year===testD.getFullYear()?`<span class="${cdCls}">${cdTxt}</span>`:''}</div><div class="cal-grid">${rows}</div></div>`;
+  function update(){
+    const now=new Date();
+    const diff=testD-now;
+    if(diff<=0){el.style.display='none';clearInterval(window._cdTimer);return;}
+    const days=Math.floor(diff/864e5);
+    const hrs=Math.floor((diff%864e5)/36e5);
+    const mins=Math.floor((diff%36e5)/6e4);
+    const secs=Math.floor((diff%6e4)/1000);
+    const cs=Math.floor((diff%1000)/10);
+    const urgent=days<3;
+    const warn=days<7;
+    const msg=urgent?'🔥 ラストスパート！':warn?'⚡ 残り1週間を切った！':'';
+    el.innerHTML=`<div class="cd-inner">
+      <div class="cd-header">
+        <svg viewBox="0 0 24 24" class="cd-clock-icon"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+        <span class="cd-top-lbl">テスト初日までのカウントダウン</span>
+      </div>
+      <div class="cd-row">
+        <div class="cd-block"><div class="cd-num big">${String(days).padStart(2,'0')}</div><div class="cd-unit">日</div></div>
+        <div class="cd-colon big">:</div>
+        <div class="cd-block"><div class="cd-num">${String(hrs).padStart(2,'0')}</div><div class="cd-unit">時間</div></div>
+        <div class="cd-colon">:</div>
+        <div class="cd-block"><div class="cd-num">${String(mins).padStart(2,'0')}</div><div class="cd-unit">分</div></div>
+        <div class="cd-colon">:</div>
+        <div class="cd-block"><div class="cd-num">${String(secs).padStart(2,'0')}</div><div class="cd-unit">秒</div></div>
+        <div class="cd-comma"><div class="cd-cs">.${String(cs).padStart(2,'0')}</div></div>
+      </div>
+      ${msg?`<div class="cd-msg">${msg}</div>`:''}
+    </div>`;
   }
-
-  const tY=testD.getFullYear(),tM=testD.getMonth();
-  const toY=today.getFullYear(),toM=today.getMonth();
-  let months='';
-  if(tY===toY&&tM===toM){
-    months=makeMonth(toY,toM);
-  } else {
-    months=makeMonth(toY,toM)+makeMonth(tY,tM);
-  }
-
-  el.innerHTML=`<div class="cal-months">${months}</div>
-  <div class="cal-legend">
-    <div class="cal-leg"><div class="cal-leg-dot" style="background:var(--blue)"></div>今日</div>
-    <div class="cal-leg"><div class="cal-leg-dot" style="background:#e05050"></div>テスト日</div>
-  </div>`;
+  update();
+  if(window._cdTimer)clearInterval(window._cdTimer);
+  window._cdTimer=setInterval(update,50);
 }
 function renderStudentFilterBar(){
   const bar=document.getElementById('t-stu-filter-bar');if(!bar)return;
@@ -1639,7 +1573,14 @@ function renderStudentList(){
   const allSts=getAllStudents();
   const td=getTD();
   // フィルター適用
-  const sts=tStudentFilter===null?allSts:allSts.filter(n=>{const sd=getSD(n);return sd.groupId===tStudentFilter;});
+  const sts=tStudentFilter===null?allSts:allSts.filter(n=>{
+    const sd=getSD(n);const td2=getTD();
+    if(tStudentFilter&&tStudentFilter.grade){
+      const g=(td2.groups||[]).find(gr=>gr.id===sd.groupId);
+      return g&&g.grade===tStudentFilter.grade;
+    }
+    return sd.groupId===tStudentFilter;
+  });
   if(!sts.length){el.innerHTML='<div class="empty-msg">'+(tStudentFilter?'このクラスの生徒はまだいません':'まだ生徒がログインしていません')+'</div>';return;}
   el.innerHTML='';
   // グループごとにまとめる（全員表示時のみ）
@@ -1708,19 +1649,32 @@ function renderStudentDetailScreen(name){
   const isFresh=sd.lastUpdated&&(Date.now()-new Date(sd.lastUpdated).getTime())<86400000;
   const dotColor=!sd.lastUpdated?'#d0d5dd':isFresh?'var(--blue)':'#f59e0b';
 
-  let html=`<div class="stu-detail-hero" style="margin-bottom:14px;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 5px rgba(0,40,100,.05);overflow:hidden;">
-    <div class="stu-detail-name">${esc((findStudentById(name)||{}).name||name)}</div>
+  // 教科別得点
+  const subjShort={'英語':'英','数学':'数','国語':'国','理科':'理','社会':'社'};
+  const subjScores=SUBJECTS.map(subj=>{
+    const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:true));
+    let sm=0,sp=0;const allSel=mats.length>0&&mats.every(m=>getGauge(sd,m.id)!==null);
+    mats.forEach(m=>{sm+=m.points;sp+=predScore(m.points,getGauge(sd,m.id));});
+    if(getIWork(sd,subj)&&mats.length>0)sp+=3;
+    const col=allSel?scoreColor(sm?sp/sm*100:0,true):'#94a3b8';
+    return{subj,short:subjShort[subj],score:Math.round(sp),max:sm,allSel,col};
+  }).filter(x=>x.max>0);
+  const subjScoreHtml=subjScores.map(x=>`<div class="stu-hero-badge"><span class="stu-hero-subj-lbl">${x.short}</span><span class="stu-hero-subj-score" style="color:${x.col}">${x.allSel?x.score:'--'}</span></div>`).join('');
+
+  let html=`<div class="stu-detail-hero">
+    <div class="stu-detail-id">${esc((findStudentById(name)||{}).name||name)}</div>
     <div class="stu-detail-meta">
-      ${g?`<span class="stu-detail-class">${gBadgeHtml(g)}</span>`:''}
+      ${g?`<span class="stu-detail-class-lbl">${esc(gLabel(g))}</span>`:''}
       <span class="stu-detail-time${isFresh?' fresh':''}"><span class="stu-detail-time-dot" style="background:${dotColor}"></span>${ago}</span>
     </div>
     <div class="stu-detail-score-wrap">
-      <div class="stu-detail-score-lbl">予想得点</div>
+      <div class="stu-detail-score-lbl">5教科 予想合計</div>
       <div class="stu-detail-score">
         <span class="stu-detail-score-num">${allSelectedT?Math.round(totalT):"--"}</span>
         <span class="stu-detail-score-max">/ 500</span>
         <span class="stu-detail-score-unit">点</span>
       </div>
+      <div class="stu-detail-subj-row">${subjScoreHtml}</div>
     </div>
   </div>`;
 
@@ -1755,23 +1709,7 @@ function renderStudentDetailScreen(name){
     html+='</div>';
   });
   el.innerHTML=html;
-  // 苦手単元セクション（下部に表示）
-  const tid=td.currentTestId;
-  const wpData=(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].weakPoints)||[];
-  if(wpData.length){
-    const wpDiv=document.createElement('div');wpDiv.style.cssText='margin-top:16px;padding:0 4px;';
-    let wpHtml='<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:4px;height:16px;background:var(--blue);border-radius:2px;"></span>苦手・わからない単元・問題<span style="background:#dc2626;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;">'+wpData.length+'件</span></div>';
-    wpData.forEach((entry,i)=>{
-      const isObj=typeof entry==='object';
-      const txt=isObj?(entry.text||''):(entry||'');
-      const img=isObj?entry.image:null;
-      const chk=isObj?!!entry.checked:false;
-      const ago=isObj&&entry.addedAt?timeAgo(entry.addedAt):'';
-      wpHtml+='<div style="padding:10px 12px;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;'+(chk?'opacity:.6;':'')+'"><div style="display:flex;align-items:center;gap:6px;font-size:13px;color:'+(chk?'var(--sub)':'var(--text)')+';'+(chk?'text-decoration:line-through;':'')+'"><span>'+(chk?'☑':'☐')+'</span> '+esc(txt)+'</div>'+(img?'<img src="'+img+'" style="max-width:100%;max-height:150px;border-radius:6px;margin-top:6px;">':'')+(ago?'<div style="font-size:10px;color:var(--sub);margin-top:3px;">'+ago+'</div>':'')+'</div>';
-    });
-    wpDiv.innerHTML=wpHtml;
-    el.appendChild(wpDiv);
-  }
+
   el.querySelectorAll('.stu-detail-mat-sel').forEach(sel=>{
     sel.addEventListener('change',function(){
       const mid=parseInt(this.dataset.mid);const pts=parseInt(this.dataset.pts);
@@ -1815,7 +1753,7 @@ function confirmGoal(){
   const inp=document.getElementById('s-target-input');
   if(inp){inp.value=v;updateTargetDiff();}
 }
-function showStudent(){document.getElementById('student').className='screen on';document.getElementById('teacher').className='screen';const td=getTD(),sd=getSD(studentName);const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);document.getElementById('s-name-hd').textContent=(g?g.label+' ':'')+studentName+'さん';const stuObj=findStudentById(studentName);const dispName=stuObj?stuObj.name:studentName;document.getElementById('s-name-hd').textContent=(g?gLabel(g)+' / ':'')+dispName+'さん';sOpenSubj=null;renderCountdown();renderSCards();sRecalcBanner();initTargetUI();renderWeakPoints();}
+function showStudent(){document.getElementById('student').className='screen on';document.getElementById('teacher').className='screen';const td=getTD(),sd=getSD(studentName);const g=(td.groups||[]).find(gr=>gr.id===sd.groupId);document.getElementById('s-name-hd').textContent=(g?g.label+' ':'')+studentName+'さん';const stuObj=findStudentById(studentName);const dispName=stuObj?stuObj.name:studentName;document.getElementById('s-name-hd').textContent=(g?gLabel(g)+' / ':'')+dispName+'さん';sOpenSubj=null;renderCountdown();renderSCards();sRecalcBanner();initTargetUI();}
 function getMats(subj,sd){const td=getTD();const gid=sd.groupId;return getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:!m.groupId));}
 function sSubjStats(subj){const sd=getSD(studentName);const mats=getMats(subj,sd);let max=0,total=0;mats.forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});if(getIWork(sd,subj)&&mats.length>0)total+=3;const sp=subjectSpread(mats,sd);return{max,total,mats,count:mats.length,low:Math.max(0,Math.round(total-sp)),high:Math.min(max,Math.round(total+sp))};}
 function updateSCardHeader(subj){
@@ -1852,7 +1790,7 @@ function buildMatBody(subj,body){
     const lvSt=levelStyle(lv);
     const pBonus=Math.round(predScore(m.points,lv));
     row.innerHTML=`<div class="mat-item-info"><div class="mat-item-name"><span class="mat-lbl">範囲${idx+1}</span> ${esc(m.name)}</div><div class="mat-item-sel"><select class="mat-sel" id="sel-${m.id}" style="background-color:${lvSt.bg};color:${lvSt.color};border-color:${lvSt.bd};font-weight:600;">${opts}</select></div></div><div class="mat-item-right"><div class="mat-pred" id="mp-${m.id}">${pBonus}点</div><div class="mat-alloc">配点 ${m.points}</div></div>`;
-    body.appendChild(row);
+
     row.querySelector('#sel-'+m.id).addEventListener('change',function(){
       const nlv=this.value?parseInt(this.value):null;
       const nsd=getSD(studentName);const tid=getTD().currentTestId;
@@ -1864,6 +1802,7 @@ function buildMatBody(subj,body){
       this.style.backgroundColor=ns.bg;this.style.color=nlv?ns.color:'#94a3b8';this.style.borderColor=ns.bd;this.style.fontWeight=nlv?'600':'400';
       updateSCardHeader(subj);sRecalcBanner();
     });
+    body.appendChild(row);
   });
   // 教科ごとのiWorkトグル
   const iwSubj=getIWork(sd,subj);
@@ -1880,24 +1819,33 @@ function buildMatBody(subj,body){
 }
 function renderStudentRegistration(){
   const td=getTD();
-  // クラスドロップダウンを更新
   const groupSel=document.getElementById('sr-group');
   if(groupSel){
     groupSel.innerHTML='<option value="">クラスを選択</option>'+(td.groups||[]).map(g=>`<option value="${g.id}">${gLabel(g)}</option>`).join('');
   }
-  // 登録済み生徒一覧を更新
   const list=document.getElementById('sr-list');
   if(!list)return;
   const stus=td.students||[];
   if(!stus.length){list.innerHTML='<div class="empty-msg">まだ生徒が登録されていません</div>';return;}
   list.innerHTML='';
-  stus.forEach(stu=>{
-    const g=(td.groups||[]).find(gr=>gr.id===stu.groupId);
-    const row=document.createElement('div');row.className='sr-row';
-    row.innerHTML=`<div style="flex:1"><div style="font-family:'Roboto Mono',monospace;font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px;">${esc(stu.id)}</div><div style="font-size:11px;color:var(--sub);">${g?gLabel(g):'クラス未設定'} &nbsp;PW: ${esc(stu.password)}</div></div><button class="class-header-del" data-id="${esc(stu.id)}">削除</button>`;
-    list.appendChild(row);
+  // クラス別にグループ化
+  const groups=td.groups||[];
+  const grouped={};
+  stus.forEach(s=>{const k=s.groupId||'none';if(!grouped[k])grouped[k]=[];grouped[k].push(s);});
+  const keys=[...groups.map(g=>g.id).filter(id=>grouped[id]?.length),...(grouped['none']?.length?['none']:[])];
+  keys.forEach(key=>{
+    const g=groups.find(gr=>gr.id===key);
+    const members=grouped[key]||[];
+    const sec=document.createElement('div');sec.className='sr-section';
+    sec.innerHTML=`<div class="sr-section-hd">${g?gLabel(g):'クラス未設定'}<span class="sr-section-count">${members.length}名</span></div>`;
+    members.forEach(stu=>{
+      const row=document.createElement('div');row.className='sr-stu-row';
+      row.innerHTML=`<div class="sr-stu-id">${esc(stu.id)}</div><div class="sr-stu-pw">PW：${esc(stu.password)}</div><button class="sr-del-btn" data-id="${esc(stu.id)}">×</button>`;
+      sec.appendChild(row);
+    });
+    list.appendChild(sec);
   });
-  list.querySelectorAll('.class-header-del').forEach(btn=>{
+  list.querySelectorAll('.sr-del-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const td2=getTD();td2.students=(td2.students||[]).filter(s=>s.id!==btn.dataset.id);saveTD(td2);renderStudentRegistration();
     });
