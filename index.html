@@ -6,6 +6,33 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script>
+function openResetModal(){
+  document.getElementById('reset-confirm-input').value='';
+  document.getElementById('reset-modal-err').textContent='';
+  document.getElementById('reset-modal').style.display='flex';
+  document.getElementById('reset-confirm-input').focus();
+}
+function executeReset(){
+  const v=document.getElementById('reset-confirm-input').value;
+  if(v!=='リセット'){
+    document.getElementById('reset-modal-err').textContent='「リセット」と入力してください';
+    return;
+  }
+  // 全データ削除
+  const keys=lsKeys();
+  keys.forEach(k=>{
+    if(_db&&_dbReady){
+      const safe=k.replace(/[^a-zA-Z0-9_-]/g,'_');
+      _db.collection('appdata').doc(safe).delete().catch(()=>{});
+    }
+    try{localStorage.removeItem(k);}catch(e){}
+    delete _store[k];
+  });
+  document.getElementById('reset-modal').style.display='none';
+  alert('リセットしました。ページを再読み込みします。');
+  location.reload();
+}
+
 function renderTodo(){
   const list=document.getElementById('s-todo-list');if(!list)return;
   const sd=getSD(studentName);const gid=sd.groupId;
@@ -743,6 +770,28 @@ html{background:var(--bg2);}
   </div>
 </div>
 
+<!-- RESET MODAL -->
+<div id="reset-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 class="modal-title" style="color:#dc2626;">⚠️ 全データリセット</h3>
+    <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:16px;">
+      以下のデータがすべて削除されます：<br>
+      <span style="color:#dc2626;font-weight:600;">・クラス登録・生徒登録<br>
+      ・テスト範囲・学習状況<br>
+      ・すべての生徒データ</span><br><br>
+      この操作は取り消せません。<br>
+      本当にリセットしますか？
+    </div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:12px;">確認のため「リセット」と入力してください</div>
+    <input class="modal-pin" id="reset-confirm-input" type="text" placeholder="リセット" style="text-align:left;font-size:14px;">
+    <div class="modal-err" id="reset-modal-err"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" id="reset-cancel">キャンセル</button>
+      <button class="btn-modal-ok" id="reset-ok" style="background:#dc2626;">リセット実行</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="login" class="screen on">
   <button class="gear-btn" id="gear-btn" title="先生ログイン"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 14c-2.67 0-5.11-1.28-6.6-3.47C6.83 13.8 9.32 13 12 13s5.17.8 6.6 2.53C17.11 17.72 14.67 19 12 19z"/></svg>TEACHER</button>
@@ -791,13 +840,14 @@ html{background:var(--bg2);}
           テスト範囲登録
         </button>
         <button class="t-mini-btn" id="t-pw-change" style="margin-left:auto;">PW変更</button>
+        <button class="t-mini-btn t-reset-btn" id="t-reset-all">リセット</button>
       </div>
       <!-- DASHBOARD -->
       <div style="padding:16px 14px 8px;">
         <div style="font-size:10px;color:var(--sub);letter-spacing:.14em;text-transform:uppercase;font-family:'Roboto Mono',monospace;margin-bottom:10px;">DASHBOARD</div>
-        <div style="margin-bottom:12px;">
-          <div style="font-size:11px;color:var(--sub);margin-bottom:5px;font-weight:600;">対象テスト</div>
-          <select id="t-dash-test-select" class="fsel" style="font-size:14px;font-weight:600;color:var(--blue);width:100%;"></select>
+        <div style="background:var(--blue);border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+          <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">現在の対象テスト（生徒画面に反映）</div>
+          <select id="t-dash-test-select" class="fsel" style="font-size:15px;font-weight:700;color:var(--blue);width:100%;border-radius:8px;padding:10px 14px;"></select>
         </div>
         <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:2px;">生徒の学習状況</div>
       </div>
@@ -1155,6 +1205,10 @@ document.getElementById('s-todo-btn').addEventListener('click',function(){
 
 
 
+document.getElementById('t-reset-all').addEventListener('click',openResetModal);
+document.getElementById('reset-cancel').addEventListener('click',()=>{document.getElementById('reset-modal').style.display='none';});
+document.getElementById('reset-ok').addEventListener('click',executeReset);
+document.getElementById('reset-confirm-input').addEventListener('keydown',e=>{if(e.key==='Enter')executeReset();});
 document.getElementById('t-pw-change').addEventListener('click',()=>{
   document.getElementById('pw-old').value='';
   document.getElementById('pw-new1').value='';
@@ -1367,7 +1421,7 @@ function renderDashList(){
   });
 }
 function hideAllRooms(){
-  ['t-room-register','t-room-class-reg','t-room-stu-reg','t-room-student-detail','t-room-students'].forEach(id=>{
+  ['t-room-register','t-room-class','t-room-class-reg','t-room-stu-reg','t-room-student-detail','t-room-students'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
 }
@@ -1449,7 +1503,7 @@ function enterRoom(room){
   const hdLabel='ホーム';
   const hdTitle=room==='register'?'テスト範囲登録':(room==='stu-reg'?'生徒登録':(room==='class-reg'?'クラス登録':''));
   setHdBack(hdLabel,showTHome,hdTitle);
-  if(room==='register'){refreshTestSelector();renderClassList();}
+  if(room==='register'){tGroupId=null;refreshTestSelector();renderClassList();}
   if(room==='stu-reg'){renderStudentRegistration();}
   if(room==='class-reg'){renderClassReg();}
 }
