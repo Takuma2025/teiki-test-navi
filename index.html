@@ -12,24 +12,28 @@ function openResetModal(){
   document.getElementById('reset-modal').style.display='flex';
   document.getElementById('reset-confirm-input').focus();
 }
-function executeReset(){
+async function executeReset(){
   const v=document.getElementById('reset-confirm-input').value;
   if(v!=='リセット'){
     document.getElementById('reset-modal-err').textContent='「リセット」と入力してください';
     return;
   }
-  // 全データ削除
+  const okBtn=document.getElementById('reset-ok');
+  okBtn.textContent='削除中...';okBtn.disabled=true;
   const keys=lsKeys();
-  keys.forEach(k=>{
-    if(_db&&_dbReady){
+  // Firestoreから全削除（完了を待つ）
+  if(_db&&_dbReady){
+    await Promise.all(keys.map(k=>{
       const safe=k.replace(/[^a-zA-Z0-9_-]/g,'_');
-      _db.collection('appdata').doc(safe).delete().catch(()=>{});
-    }
+      return _db.collection('appdata').doc(safe).delete().catch(()=>{});
+    }));
+  }
+  // localStorageとメモリから削除
+  keys.forEach(k=>{
     try{localStorage.removeItem(k);}catch(e){}
     delete _store[k];
   });
   document.getElementById('reset-modal').style.display='none';
-  alert('リセットしました。ページを再読み込みします。');
   location.reload();
 }
 
@@ -92,6 +96,11 @@ function predScoreWithBonus(pts,lv){
   <!-- ▲ ここまで -->
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="定テ予想">
+  <meta name="application-name" content="定テ予想">
+  <meta name="theme-color" content="#005cac">
+  <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjogIuWumuacn+ODhuOCueODiOWujOaIkOW6puODgeOCp+ODg+OCr++8huS6iOaDs+W+l+eCuSIsICJzaG9ydF9uYW1lIjogIuWumuODhuS6iOaDsyIsICJzdGFydF91cmwiOiAiLi8iLCAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwgInRoZW1lX2NvbG9yIjogIiMwMDVjYWMiLCAiYmFja2dyb3VuZF9jb2xvciI6ICIjMDA1Y2FjIiwgImljb25zIjogW3sic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzl6ZG1jaUlIWnBaWGRDYjNnOUlqQWdNQ0F4T1RJZ01Ua3lJajRLSUNBOGNtVmpkQ0IzYVdSMGFEMGlNVGt5SWlCb1pXbG5hSFE5SWpFNU1pSWdjbmc5SWpRd0lpQm1hV3hzUFNJak1EQTFZMkZqSWk4K0NpQWdQSFJsZUhRZ2VEMGlPVFlpSUhrOUlqZ3dJaUIwWlhoMExXRnVZMmh2Y2owaWJXbGtaR3hsSWlCbWFXeHNQU0ozYUdsMFpTSWdabTl1ZEMxbVlXMXBiSGs5SW5OaGJuTXRjMlZ5YVdZaUlHWnZiblF0ZDJWcFoyaDBQU0ppYjJ4a0lpQm1iMjUwTFhOcGVtVTlJalUySWo3bHJwcmpnNFk4TDNSbGVIUStDaUFnUEhSbGVIUWdlRDBpT1RZaUlIazlJakV6T0NJZ2RHVjRkQzFoYm1Ob2IzSTlJbTFwWkdSc1pTSWdabWxzYkQwaWNtZGlZU2d5TlRVc01qVTFMREkxTlN3d0xqY3BJaUJtYjI1MExXWmhiV2xzZVQwaWMyRnVjeTF6WlhKcFppSWdabTl1ZEMxM1pXbG5hSFE5SW1KdmJHUWlJR1p2Ym5RdGMybDZaVDBpTXpRaVB1UzZpT2FEc3p3dmRHVjRkRDRLUEM5emRtYysiLCAic2l6ZXMiOiAiMTkyeDE5MiIsICJ0eXBlIjogImltYWdlL3N2Zyt4bWwifSwgeyJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCNGJXeHVjejBpYUhSMGNEb3ZMM2QzZHk1M015NXZjbWN2TWpBd01DOXpkbWNpSUhacFpYZENiM2c5SWpBZ01DQXhPVElnTVRreUlqNEtJQ0E4Y21WamRDQjNhV1IwYUQwaU1Ua3lJaUJvWldsbmFIUTlJakU1TWlJZ2NuZzlJalF3SWlCbWFXeHNQU0lqTURBMVkyRmpJaTgrQ2lBZ1BIUmxlSFFnZUQwaU9UWWlJSGs5SWpnd0lpQjBaWGgwTFdGdVkyaHZjajBpYldsa1pHeGxJaUJtYVd4c1BTSjNhR2wwWlNJZ1ptOXVkQzFtWVcxcGJIazlJbk5oYm5NdGMyVnlhV1lpSUdadmJuUXRkMlZwWjJoMFBTSmliMnhrSWlCbWIyNTBMWE5wZW1VOUlqVTJJajdscnByamc0WThMM1JsZUhRK0NpQWdQSFJsZUhRZ2VEMGlPVFlpSUhrOUlqRXpPQ0lnZEdWNGRDMWhibU5vYjNJOUltMXBaR1JzWlNJZ1ptbHNiRDBpY21kaVlTZ3lOVFVzTWpVMUxESTFOU3d3TGpjcElpQm1iMjUwTFdaaGJXbHNlVDBpYzJGdWN5MXpaWEpwWmlJZ1ptOXVkQzEzWldsbmFIUTlJbUp2YkdRaUlHWnZiblF0YzJsNlpUMGlNelFpUHVTNmlPYURzend2ZEdWNGRENEtQQzl6ZG1jKyIsICJzaXplcyI6ICI1MTJ4NTEyIiwgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCJ9XX0=">
+  <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj4KICA8cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjQwIiBmaWxsPSIjMDA1Y2FjIi8+CiAgPHRleHQgeD0iOTYiIHk9IjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LXNpemU9IjU2Ij7lrprjg4Y8L3RleHQ+CiAgPHRleHQgeD0iOTYiIHk9IjEzOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjcpIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZvbnQtc2l6ZT0iMzQiPuS6iOaDszwvdGV4dD4KPC9zdmc+">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>定期テスト完成度チェック＆予想得点シミュレーションシステム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -1288,12 +1297,10 @@ function refreshTestSelector(){
   const sel=document.getElementById('t-test-select');if(!sel)return;
   const td=getTD();
   // 有効なテストのみ表示（deletedフラグがないもの）
-  const activeTests=TESTS.filter(t=>!td.deletedTests||!td.deletedTests.includes(t.id));
-  if(!activeTests.length){sel.innerHTML='<option value="">テストがありません</option>';return;}
+  const activeTests=TESTS;
+
   sel.innerHTML=activeTests.map(t=>`<option value="${t.id}"${t.id===td.currentTestId?' selected':''}>${t.name}</option>`).join('');
-  if(!activeTests.find(t=>t.id===td.currentTestId)){
-    td.currentTestId=activeTests[0].id;saveTD(td);
-  }
+
   sel.value=td.currentTestId;
 
 }
