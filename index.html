@@ -177,32 +177,6 @@ function exportCSV(){
 }
 
 // === 要注意生徒の抽出 ===
-function getAlertStudents(){
-  const td=getTD();const tid=td.currentTestId;
-  const sts=getAllStudents();
-  const alerts=[];
-  sts.forEach(name=>{
-    const sd=getSD(name);const scores=getStudentSubjScores(sd);
-    const lastU=sd.byTest&&sd.byTest[tid]?sd.byTest[tid].lastUpdated:sd.lastUpdated;
-    const daysSince=lastU?Math.floor((Date.now()-new Date(lastU).getTime())/864e5):999;
-    const reasons=[];
-    if(daysSince>=3)reasons.push(daysSince>=999?'未更新':daysSince+'日間更新なし');
-    if(scores.allSel&&scores.max>0&&scores.total/scores.max<0.4)reasons.push('予想'+scores.total+'点と低め');
-    if(reasons.length)alerts.push({name,reasons});
-  });
-  return alerts;
-}
-function renderAlerts(){
-  const el=document.getElementById('t-dash-alerts');if(!el)return;
-  const alerts=getAlertStudents();
-  if(!alerts.length){el.style.display='none';return;}
-  el.style.display='';
-  el.innerHTML=`<div class="alert-hd"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:#dc2626;"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>要注意の生徒（${alerts.length}名）</div>`+
-    alerts.map(a=>`<div class="alert-row" data-name="${esc(a.name)}"><span class="alert-name">${esc((findStudentById(a.name)||{}).name||a.name)}</span><span class="alert-reason">${a.reasons.join(' / ')}</span></div>`).join('');
-  el.querySelectorAll('.alert-row').forEach(row=>{
-    row.addEventListener('click',()=>enterStudentDetail(row.dataset.name));
-  });
-}
 
 function openResetModal(){
   document.getElementById('reset-confirm-input').value='';
@@ -743,14 +717,6 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 .t-mini-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;font-size:12px;font-weight:500;color:var(--sub);background:var(--bg2);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;white-space:nowrap;flex-shrink:0;}
 .t-mini-btn:hover{background:var(--blue-lt);color:var(--blue);border-color:var(--blue-pale);}
 .dash-section{background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;}
-.s-rank-wrap{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:6px 18px;text-align:center;display:flex;align-items:center;gap:8px;}
-.s-rank-lbl{font-size:10px;color:rgba(255,255,255,.7);font-weight:700;margin-bottom:0;}
-.s-rank-val{display:flex;align-items:baseline;color:#fff;justify-content:center;}
-.s-rank-num{font-family:'Roboto Mono',monospace;font-size:20px;font-weight:700;line-height:1;}
-.s-rank-slash{font-size:14px;color:rgba(255,255,255,.5);margin:0 3px;}
-.s-rank-total{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:500;color:rgba(255,255,255,.8);}
-.s-rank-unit{font-size:11px;color:rgba(255,255,255,.7);margin-left:3px;}
-.s-rank-school{font-size:10px;color:rgba(255,255,255,.7);margin-top:2px;}
 .dash-section-hd{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--blue);border-bottom:1px solid var(--border);}
 .dash-grade-pill{font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:10px;}
 .dash-school{font-size:13px;font-weight:600;color:#fff;}
@@ -881,13 +847,6 @@ input,select,textarea{-webkit-touch-callout:default;-webkit-user-select:text;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
-.dash-alerts{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;margin-bottom:14px;}
-.alert-hd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px;}
-.alert-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:#fff;border-radius:7px;margin-bottom:5px;cursor:pointer;border:1px solid #fee2e2;transition:.15s;}
-.alert-row:last-child{margin-bottom:0;}
-.alert-row:active{background:#fef2f2;}
-.alert-name{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:600;color:var(--text);}
-.alert-reason{font-size:11px;color:#dc2626;font-weight:500;text-align:right;}
 .csv-btn{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--border);color:var(--sub);font-size:11px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:.15s;}
 .csv-btn:active{background:var(--bg2);}
 .himekuri-wrap{display:flex;justify-content:center;margin:8px 0 4px;}
@@ -1111,7 +1070,6 @@ html{background:var(--bg2);}
             </div>
           </div>
         </div>
-        <div id="t-dash-alerts" class="dash-alerts" style="display:none;"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">
           <div style="font-size:16px;font-weight:600;color:var(--text);">生徒の学習状況</div>
           <button class="csv-btn" id="t-csv-export"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Excel出力</button>
@@ -1280,12 +1238,6 @@ html{background:var(--bg2);}
           <span class="score-num" id="s-score">0</span>
           <span class="score-num-unit">点</span>
           <span class="score-out-of" id="s-max">/ 500点</span>
-        </div>
-        <div id="s-rank-wrap" class="s-rank-wrap" style="display:none;">
-          <div class="s-rank-lbl">校舎内ランキング</div>
-          <div class="s-rank-val">
-            <span class="s-rank-num" id="s-rank-pos">--</span><span class="s-rank-slash">/</span><span class="s-rank-total" id="s-rank-total">--</span><span class="s-rank-unit">位</span>
-          </div>
         </div>
       </div>
       <div class="score-range" id="s-range" style="display:none"></div>
@@ -1618,7 +1570,7 @@ function renderDashboard(){
   const td=getTD();
   const testNameEl=document.getElementById('t-dash-test-name');
   if(testNameEl)testNameEl.textContent=TESTS.find(t=>t.id===td.currentTestId)?.name||'';
-  renderAlerts();renderDashFilterBar();renderDashList();
+  renderDashFilterBar();renderDashList();
 }
 function renderDashFilterBar(){
   const bar=document.getElementById('t-dash-filter-bar');if(!bar)return;
@@ -2059,7 +2011,7 @@ function renderStudentDetailScreen(name){
       const lv=getGauge(sd,m.id);const p=Math.round(predScoreWithBonus(m.points,lv,getIWorkByMat(sd,m.id)));
       const effLv=lv===null?5:lv;
       const lvSt=levelStyle(effLv);
-    const opts=getPresets().map(pr=>`<option value="${pr.v}"${pr.v===effLv?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
+    const opts=getPresets().map(pr=>`<option value="${pr.v}"${String(pr.v)===String(effLv===null?'':effLv)?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
       html+=`<div class="stu-detail-mat t-detail-mat-row" data-mid="${m.id}" data-pts="${m.points}">
         <div class="t-dm-head">
           <span class="stu-detail-mat-idx">範囲${i+1}</span>
@@ -2149,10 +2101,10 @@ function buildMatBody(subj,body){
   mats.forEach((m,idx)=>{
     const lv=getGauge(sd,m.id);const p=Math.round(predScoreWithBonus(m.points,lv,getIWorkByMat(sd,m.id)));
     const row=document.createElement('div');row.className='mat-item';
-    const effLv=lv===null?5:lv;
-    const opts=getPresets().map(pr=>`<option value="${pr.v}"${pr.v===effLv?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
-    const lvSt=levelStyleDyn(effLv);
-    const pBonus=Math.round(predScore(m.points,effLv));
+    const effLv=lv;
+    const opts=[{v:'',symbol:'',label:'学習状況を選択'},...getPresets()].map(pr=>`<option value="${pr.v}"${String(pr.v)===String(effLv===null?'':effLv)?' selected':''}>${pr.symbol} ${pr.label}</option>`).join('');
+    const lvSt=lv===null?{color:'#94a3b8',bg:'#fff',bd:'#d0d5db'}:levelStyleDyn(lv);
+    const pBonus=Math.round(predScore(m.points,lv));
     row.innerHTML=`<div class="mat-item-info"><div class="mat-item-name"><span class="mat-lbl">範囲${idx+1}</span> ${esc(m.name)}</div><div class="mat-item-sel"><select class="mat-sel" id="sel-${m.id}" style="background-color:${lvSt.bg};color:${lvSt.color};border-color:${lvSt.bd};font-weight:600;">${opts}</select></div></div><div class="mat-item-right"><div class="mat-pred" id="mp-${m.id}">${pBonus}点</div><div class="mat-alloc">配点 ${m.points}</div></div>`;
 
     row.querySelector('#sel-'+m.id).addEventListener('change',function(){
@@ -2278,43 +2230,12 @@ function saveTargetAndClose(){
   document.getElementById('s-target-edit').style.display='none';
   updateTargetDiff();
 }
-function calcSchoolRank(studentId){
-  const td=getTD();
-  const myStu=findStudentById(studentId);if(!myStu)return null;
-  const myGroup=(td.groups||[]).find(g=>g.id===myStu.groupId);
-  if(!myGroup||!myGroup.school)return null;
-  const sameSchool=(td.students||[]).filter(s=>{
-    const g=(td.groups||[]).find(gr=>gr.id===s.groupId);
-    return g&&g.school===myGroup.school;
-  });
-  if(sameSchool.length<2)return null;
-  const scores=sameSchool.map(s=>{
-    const sd=getSD(s.id);const gid=sd.groupId;
-    let total=0;
-    const _ms=getCurrentMats().filter(m=>gid?m.groupId===gid:true);let _iwe=0;SUBJECTS.forEach(subj=>{if(getIWork(sd,subj)&&_ms.some(m=>m.subject===subj))_iwe+=3;});_ms.forEach(m=>{
-      total+=predScore(m.points,getGauge(sd,m.id));
-    });
-    total+=_iwe;return{id:s.id,score:total};
-  });
-  scores.sort((a,b)=>b.score-a.score);
-  const myIdx=scores.findIndex(s=>s.id===studentId);
-  return{rank:myIdx+1,total:scores.length,school:myGroup.school};
-}
-function updateSchoolRank(){
-  const wrap=document.getElementById('s-rank-wrap');if(!wrap)return;
-  const r=calcSchoolRank(studentName);
-  if(!r){wrap.style.display='none';return;}
-  wrap.style.display='block';
-  document.getElementById('s-rank-pos').textContent=r.rank;
-  document.getElementById('s-rank-total').textContent=r.total;
-  
-}
 function sRecalcBanner(){const td=getTD(),sd=getSD(studentName);const gid=sd.groupId;let maxT=0,totalT=0,lowT=0,highT=0;SUBJECTS.forEach(subj=>{const mats=getCurrentMats().filter(m=>m.subject===subj&&(gid?m.groupId===gid:!m.groupId));if(!mats.length)return;let sm=0,st=0;mats.forEach(m=>{sm+=m.points;st+=predScore(m.points,getGauge(sd,m.id));});if(getIWork(sd,subj))st+=3;const sp=subjectSpread(mats,sd);maxT+=sm;totalT+=st;lowT+=Math.max(0,Math.round(st-sp));highT+=Math.min(sm,Math.round(st+sp));});const allMats2=getCurrentMats().filter(m=>gid?m.groupId===gid:!m.groupId);
   const allSelected=allMats2.length>0&&allMats2.every(m=>getGauge(sd,m.id)!==null);
   const pendingEl=document.getElementById('sim-pending');
   const mainEl=document.getElementById('score-main-wrap');
   if(pendingEl&&mainEl){pendingEl.className=allSelected?'sim-pending':'sim-pending on';mainEl.style.display=allSelected?'':'none';}
-  document.getElementById('s-score').textContent=Math.round(totalT);document.getElementById('s-max').textContent='/ 500点';const rng=document.getElementById('s-range');if(rng){const score=Math.round(totalT);if(score>0){const ns='font-family:\'Roboto Mono\',monospace;font-size:13px;font-weight:600;';const lo=Math.max(0,score-20);const hi=Math.min(500,score+20);rng.innerHTML=`予測レンジ：<span style="${ns}">${lo}</span>〜<span style="${ns}">${hi}</span>点`;rng.style.display='';}else{rng.innerHTML='';rng.style.display='none';}}updateTargetDiff();updateSchoolRank();}
+  document.getElementById('s-score').textContent=Math.round(totalT);document.getElementById('s-max').textContent='/ 500点';const rng=document.getElementById('s-range');if(rng){const score=Math.round(totalT);if(score>0){const ns='font-family:\'Roboto Mono\',monospace;font-size:13px;font-weight:600;';const lo=Math.max(0,score-20);const hi=Math.min(500,score+20);rng.innerHTML=`予測レンジ：<span style="${ns}">${lo}</span>〜<span style="${ns}">${hi}</span>点`;rng.style.display='';}else{rng.innerHTML='';rng.style.display='none';}}updateTargetDiff();}
 loadAllFromFirestore();
 
 window.onerror=function(msg,src,line,col,err){
