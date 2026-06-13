@@ -3,12 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>定期テスト完成度チェック＆予想得点シミュレーションシステム</title>
+<title>定期テスト完成度チェック＆得点シミュレーション</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800;900&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script>
+
+
+/* ════ メッセージ ════ */
+function getTeacherMsg(){const td=getTD();return td.teacherMsg||'';}
+function renderTeacherMsg(){
+  const el=document.getElementById('s-msg-area');if(!el)return;
+  const msg=getTeacherMsg().trim();
+  if(!msg){el.style.display='none';return;}
+  el.style.display='';
+  el.innerHTML=`<div class="t-msg-card"><div class="t-msg-label"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>先生からのメッセージ</div><div class="t-msg-text">${esc(msg)}</div></div>`;
+}
+function initMsgRoom(){
+  const td=getTD();
+  document.getElementById('msg-text').value=td.teacherMsg||'';
+  renderMsgPreview();
+}
+function renderMsgPreview(){
+  const pv=document.getElementById('msg-preview');if(!pv)return;
+  const msg=document.getElementById('msg-text').value.trim();
+  if(!msg){pv.style.display='none';return;}
+  pv.style.display='';
+  pv.innerHTML=`<div class="t-msg-card"><div class="t-msg-label"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>先生からのメッセージ</div><div class="t-msg-text">${esc(msg)}</div></div>`;
+}
+
+/* ════ テスト結果 ════ */
+function initResultsRoom(){
+  const sel=document.getElementById('res-test-sel');
+  sel.innerHTML=TESTS.map(t=>`<option value="${t.id}"${t.id===getTD().currentTestId?' selected':''}>${esc(t.name)}</option>`).join('');
+  sel.addEventListener('change',renderResultsList);
+  renderResultsList();
+}
+function getActual(id,tid){
+  const sd=getSD(id);
+  return(sd.byTest&&sd.byTest[tid]&&sd.byTest[tid].actual!=null)?sd.byTest[tid].actual:null;
+}
+function setActual(id,tid,val){
+  const sd=getSD(id);
+  if(!sd.byTest)sd.byTest={};
+  if(!sd.byTest[tid])sd.byTest[tid]={gauge:{},iwork:{},target:null,lastUpdated:null};
+  sd.byTest[tid].actual=val;
+  saveSD(id,sd);
+}
+function renderResultsList(){
+  const el=document.getElementById('res-list');if(!el)return;
+  const tid=document.getElementById('res-test-sel').value;
+  const sts=getAllStudents().sort((a,b)=>a.localeCompare(b,'ja'));
+  if(!sts.length){el.innerHTML='<div class="empty-msg" style="background:#fff;border-radius:12px;border:1px solid var(--line);"><b>生徒がいません</b></div>';return;}
+  const card=document.createElement('div');card.className='card';
+  card.innerHTML='<div class="res-thead"><div>生徒ID</div><div>予想</div><div>実際の点数</div><div>差</div></div>';
+  sts.forEach(id=>{
+    const sd=getSD(id);
+    const ts=totalStats(sd);
+    const actual=getActual(id,tid);
+    const pred=ts.allSel?ts.total:null;
+    const diff=actual!=null&&pred!=null?actual-pred:null;
+    const row=document.createElement('div');row.className='res-row';
+    row.className='res-row';
+    row.innerHTML=`
+      <div class="res-name">${esc(id)}</div>
+      <div class="res-pred">${pred!=null?pred+'点':'---'}</div>
+      <input class="res-inp${actual!=null?' entered':''}" type="number" min="0" max="500" placeholder="---" value="${actual!=null?actual:''}" data-id="${esc(id)}" data-tid="${esc(tid)}">
+      <div class="res-diff" style="color:${diff==null?'var(--faint)':diff>=0?'var(--green)':'var(--red)'}">${diff==null?'':diff>=0?'+'+diff:diff}</div>`;
+    row.querySelector('.res-inp').addEventListener('change',function(){
+      const v=this.value===''?null:Math.min(500,Math.max(0,parseInt(this.value)||0));
+      setActual(this.dataset.id,this.dataset.tid,v);
+      this.value=v!=null?v:'';
+      this.classList.toggle('entered',v!=null);
+      renderResultsList();
+    });
+    card.appendChild(row);
+  });
+  el.innerHTML='';el.appendChild(card);
+}
+
 const firebaseConfig = {
   apiKey:            "AIzaSyDAXhLk0x-IHtig8MJXprrsTOCesZZCwWs",
   authDomain:        "testnavi-cf72b.firebaseapp.com",
@@ -32,10 +106,26 @@ var _db = null;
   --sh-lg:0 8px 28px rgba(16,40,80,.14);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html{min-height:100%;overflow-x:hidden;overflow-y:auto;overscroll-behavior-x:none;-webkit-text-size-adjust:100%;background:var(--blue);}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;max-width:480px;margin:0 auto;overflow-x:hidden;overflow-y:visible;overscroll-behavior-x:none;min-height:100dvh;}
+html{min-height:100%;overflow-x:hidden;overflow-y:auto;overscroll-behavior-x:none;-webkit-text-size-adjust:100%;background:var(--bg);}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;width:100%;overflow-x:hidden;overflow-y:visible;overscroll-behavior-x:none;min-height:100dvh;}
 input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .screen{display:none;}.screen.on{display:block;min-height:100dvh;background:var(--bg);}
+#app-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--blue);color:#fff;font-size:13px;font-weight:700;padding:11px 24px;border-radius:24px;box-shadow:0 4px 16px rgba(0,40,100,.25);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;z-index:9999;}
+#app-toast.toast-show{opacity:1;transform:translateX(-50%) translateY(0);}
+.res-thead{display:grid;grid-template-columns:1fr 54px 88px 52px;gap:0;padding:9px 16px;font-size:10px;font-weight:700;color:var(--sub);border-bottom:1.5px solid var(--ink);background:var(--bg);letter-spacing:.05em;}
+.res-thead>div{text-align:right;}.res-thead>div:first-child{text-align:left;}
+.res-row{display:grid;grid-template-columns:1fr 54px 88px 52px;align-items:center;gap:0;padding:11px 16px;border-bottom:1px solid var(--line);background:#fff;}
+.res-row:last-child{border-bottom:none;}
+.res-name{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
+.res-pred{font-size:12px;color:var(--sub);font-family:'Roboto Mono',monospace;text-align:right;}
+.res-inp{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:var(--ink);width:72px;text-align:center;border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;outline:none;justify-self:center;}
+.res-inp:focus{border-color:var(--blue);}
+.res-inp.entered{border-color:var(--green);color:var(--green);}
+.res-diff{font-size:12px;font-weight:700;text-align:right;}
+.t-msg-card{background:linear-gradient(135deg,var(--blue-lt),#e8f3fd);border:1.5px solid var(--blue-pale);border-radius:14px;padding:14px 16px;}
+.t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
+.t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -67,7 +157,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .login-field input::placeholder{color:rgba(255,255,255,.45);font-weight:400;}
 .login-btn{width:100%;background:#fff;color:var(--blue);border:none;font-size:15px;font-weight:800;padding:15px;border-radius:14px;cursor:pointer;margin-top:8px;letter-spacing:.1em;transition:.15s;box-shadow:0 4px 18px rgba(0,20,60,.25);}
 .login-btn:active{transform:scale(.97);opacity:.92;}
-.login-err{font-size:12px;font-weight:600;color:#ffd6d6;text-align:center;min-height:18px;margin-top:12px;}
+.login-err{font-size:12px;font-weight:600;color:#fff;text-align:center;min-height:18px;margin-top:12px;}
 
 /* ══ HEADER ══ */
 .hd{background:var(--blue);padding:0 16px;padding-top:env(safe-area-inset-top,0px);height:calc(54px + env(safe-area-inset-top,0px));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(6,40,90,.18);}
@@ -81,7 +171,23 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 
 /* ══ TEACHER NAV ══ */
 .t-nav{display:flex;align-items:center;gap:7px;padding:11px 14px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
-.t-nav::-webkit-scrollbar{display:none;}
+.t-nav#app-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--blue);color:#fff;font-size:13px;font-weight:700;padding:11px 24px;border-radius:24px;box-shadow:0 4px 16px rgba(0,40,100,.25);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;z-index:9999;}
+#app-toast.toast-show{opacity:1;transform:translateX(-50%) translateY(0);}
+.res-thead{display:grid;grid-template-columns:1fr 54px 88px 52px;gap:0;padding:9px 16px;font-size:10px;font-weight:700;color:var(--sub);border-bottom:1.5px solid var(--ink);background:var(--bg);letter-spacing:.05em;}
+.res-thead>div{text-align:right;}.res-thead>div:first-child{text-align:left;}
+.res-row{display:grid;grid-template-columns:1fr 54px 88px 52px;align-items:center;gap:0;padding:11px 16px;border-bottom:1px solid var(--line);background:#fff;}
+.res-row:last-child{border-bottom:none;}
+.res-name{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
+.res-pred{font-size:12px;color:var(--sub);font-family:'Roboto Mono',monospace;text-align:right;}
+.res-inp{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:var(--ink);width:72px;text-align:center;border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;outline:none;justify-self:center;}
+.res-inp:focus{border-color:var(--blue);}
+.res-inp.entered{border-color:var(--green);color:var(--green);}
+.res-diff{font-size:12px;font-weight:700;text-align:right;}
+.t-msg-card{background:linear-gradient(135deg,var(--blue-lt),#e8f3fd);border:1.5px solid var(--blue-pale);border-radius:14px;padding:14px 16px;}
+.t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
+.t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
+::-webkit-scrollbar{display:none;}
 .t-nav-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;font-size:12px;font-weight:600;color:var(--sub);background:var(--bg);border:1px solid var(--line);border-radius:20px;cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0;}
 .t-nav-btn:active{background:var(--blue-lt);color:var(--blue);}
 .t-nav-btn svg{width:12px;height:12px;fill:currentColor;}
@@ -103,7 +209,23 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .xlsx-btn:active{background:var(--bg);}
 .xlsx-btn svg{width:11px;height:11px;fill:currentColor;}
 .filter-bar{display:flex;gap:7px;margin-bottom:13px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
-.filter-bar::-webkit-scrollbar{display:none;}
+.filter-bar#app-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--blue);color:#fff;font-size:13px;font-weight:700;padding:11px 24px;border-radius:24px;box-shadow:0 4px 16px rgba(0,40,100,.25);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;z-index:9999;}
+#app-toast.toast-show{opacity:1;transform:translateX(-50%) translateY(0);}
+.res-thead{display:grid;grid-template-columns:1fr 54px 88px 52px;gap:0;padding:9px 16px;font-size:10px;font-weight:700;color:var(--sub);border-bottom:1.5px solid var(--ink);background:var(--bg);letter-spacing:.05em;}
+.res-thead>div{text-align:right;}.res-thead>div:first-child{text-align:left;}
+.res-row{display:grid;grid-template-columns:1fr 54px 88px 52px;align-items:center;gap:0;padding:11px 16px;border-bottom:1px solid var(--line);background:#fff;}
+.res-row:last-child{border-bottom:none;}
+.res-name{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
+.res-pred{font-size:12px;color:var(--sub);font-family:'Roboto Mono',monospace;text-align:right;}
+.res-inp{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:var(--ink);width:72px;text-align:center;border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;outline:none;justify-self:center;}
+.res-inp:focus{border-color:var(--blue);}
+.res-inp.entered{border-color:var(--green);color:var(--green);}
+.res-diff{font-size:12px;font-weight:700;text-align:right;}
+.t-msg-card{background:linear-gradient(135deg,var(--blue-lt),#e8f3fd);border:1.5px solid var(--blue-pale);border-radius:14px;padding:14px 16px;}
+.t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
+.t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
+::-webkit-scrollbar{display:none;}
 .f-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:12.5px;font-weight:600;color:var(--sub);background:#fff;border:1px solid var(--line);border-radius:20px;cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0;}
 .f-btn .cnt{font-size:10px;font-weight:700;background:var(--bg);color:var(--faint);padding:1px 7px;border-radius:9px;}
 .f-btn.active{background:var(--blue);border-color:var(--blue);color:#fff;}
@@ -173,7 +295,23 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 
 /* range editor */
 .subj-tabs{display:flex;gap:6px;padding:13px 16px 0;overflow-x:auto;scrollbar-width:none;}
-.subj-tabs::-webkit-scrollbar{display:none;}
+.subj-tabs#app-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--blue);color:#fff;font-size:13px;font-weight:700;padding:11px 24px;border-radius:24px;box-shadow:0 4px 16px rgba(0,40,100,.25);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;z-index:9999;}
+#app-toast.toast-show{opacity:1;transform:translateX(-50%) translateY(0);}
+.res-thead{display:grid;grid-template-columns:1fr 54px 88px 52px;gap:0;padding:9px 16px;font-size:10px;font-weight:700;color:var(--sub);border-bottom:1.5px solid var(--ink);background:var(--bg);letter-spacing:.05em;}
+.res-thead>div{text-align:right;}.res-thead>div:first-child{text-align:left;}
+.res-row{display:grid;grid-template-columns:1fr 54px 88px 52px;align-items:center;gap:0;padding:11px 16px;border-bottom:1px solid var(--line);background:#fff;}
+.res-row:last-child{border-bottom:none;}
+.res-name{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
+.res-pred{font-size:12px;color:var(--sub);font-family:'Roboto Mono',monospace;text-align:right;}
+.res-inp{font-family:'Roboto Mono',monospace;font-size:14px;font-weight:700;color:var(--ink);width:72px;text-align:center;border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;outline:none;justify-self:center;}
+.res-inp:focus{border-color:var(--blue);}
+.res-inp.entered{border-color:var(--green);color:var(--green);}
+.res-diff{font-size:12px;font-weight:700;text-align:right;}
+.t-msg-card{background:linear-gradient(135deg,var(--blue-lt),#e8f3fd);border:1.5px solid var(--blue-pale);border-radius:14px;padding:14px 16px;}
+.t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
+.t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
+::-webkit-scrollbar{display:none;}
 .subj-tab{padding:7px 15px;font-size:12.5px;font-weight:700;color:var(--sub);background:var(--bg);border:1px solid var(--line);border-radius:18px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.15s;}
 .subj-tab.active{background:var(--blue);border-color:var(--blue);color:#fff;}
 .rng-row{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);}
@@ -181,6 +319,10 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .rng-no{font-family:'Roboto Mono',monospace;font-size:10px;font-weight:600;color:var(--faint);width:36px;flex-shrink:0;}
 .rng-name{flex:1;font-size:13.5px;font-weight:500;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .rng-pts{font-family:'Roboto Mono',monospace;font-size:12px;font-weight:600;color:var(--sub);flex-shrink:0;}
+.rng-pts-wrap{display:flex;align-items:center;gap:3px;flex-shrink:0;}
+.rng-pts-inp{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;color:var(--blue);width:52px;text-align:right;border:1.5px solid var(--line);border-radius:6px;padding:4px 6px;outline:none;background:#fff;}
+.rng-pts-inp:focus{border-color:var(--blue);}
+.rng-pts-u{font-size:12px;font-weight:600;color:var(--sub);}
 .rng-total{display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:11px 16px;background:var(--bg);border-top:1.5px solid var(--line);font-size:12px;font-weight:700;color:var(--sub);}
 .rng-total b{font-family:'Roboto Mono',monospace;font-size:15px;color:var(--blue);}
 .add-form{display:flex;gap:8px;align-items:flex-end;padding:14px 16px;background:var(--bg);border-top:1px solid var(--line);}
@@ -296,7 +438,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .hime-body{display:flex;align-items:baseline;justify-content:center;gap:4px;}
 .hime-ato{font-size:15px;font-weight:800;color:var(--ink);}
 .hime-num{font-family:'Roboto Mono',monospace;font-size:60px;font-weight:800;color:var(--blue);line-height:1.05;font-variant-numeric:tabular-nums;}
-.hime-num.urgent{color:var(--red);}
+
 .hime-unit{font-size:18px;font-weight:800;color:var(--ink);}
 .hime-timer{display:flex;align-items:baseline;justify-content:center;gap:2px;margin-top:4px;font-family:'Roboto Mono',monospace;font-variant-numeric:tabular-nums;color:var(--blue);}
 .ht-unit{display:inline-flex;align-items:baseline;gap:0px;}
@@ -304,7 +446,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .ht-l{font-size:8px;font-weight:700;opacity:.7;}
 .ht-sep{font-size:11px;font-weight:700;opacity:.3;padding-bottom:1px;margin:0 1px;}
 .ht-cs{font-size:11px;font-weight:600;opacity:.5;}
-.hime-msg{font-size:11px;font-weight:800;color:var(--red);margin-top:4px;}
+
 
 /* sections */
 .s-sec-wrap{padding:17px 14px 7px;}
@@ -335,20 +477,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .mat-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:1px;}
 .mat-pred{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;color:var(--blue);white-space:nowrap;}
 .mat-alloc{font-size:9.5px;color:var(--faint);font-family:'Roboto Mono',monospace;}
-.iwork-row{padding:11px 15px 13px;background:#fff;}
-.iwork{display:flex;align-items:center;gap:11px;cursor:pointer;padding:11px 15px;border:2px solid var(--line);border-radius:12px;background:#fff;transition:.2s;user-select:none;-webkit-user-select:none;}
-.iwork:active{transform:scale(.99);}
-.iwork.on{background:#eff6ff;border-color:#60a5fa;}
-.iwork input{display:none;}
-.iwork-sw{width:40px;height:22px;border-radius:11px;background:#d1d5db;position:relative;transition:.2s;flex-shrink:0;}
-.iwork-sw::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
-.iwork.on .iwork-sw{background:#3b82f6;}
-.iwork.on .iwork-sw::after{left:20px;}
-.iwork-lbl{font-size:12px;font-weight:700;color:var(--sub);line-height:1.45;transition:.2s;}
-.iwork.on .iwork-lbl{color:#3b82f6;}
-.iwork-pts{margin-left:auto;flex-shrink:0;font-family:'Roboto Mono',monospace;font-size:13px;font-weight:800;color:var(--faint);transition:.2s;}
-.iwork.on .iwork-pts{color:#3b82f6;}
-
+.iwork.on .iwork.on .iwork.on .iwork.on 
 /* todo */
 .todo-card{margin:14px 12px 0;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#f0f7ff,#e7f0fd);border:1.5px solid #93c5fd;}
 .todo-btn{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;background:transparent;border:none;cursor:pointer;text-align:left;transition:.15s;}
@@ -375,14 +504,23 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .goal-banner{position:fixed;top:36%;left:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.97);color:var(--blue);font-size:20px;font-weight:800;padding:20px 40px;border-radius:17px;box-shadow:0 20px 60px rgba(0,30,80,.3);z-index:9001;opacity:0;pointer-events:none;animation:goalPop 3s cubic-bezier(.34,1.56,.64,1) forwards;letter-spacing:.05em;text-align:center;white-space:nowrap;}
 .goal-banner small{display:block;font-size:10.5px;font-weight:700;color:var(--sub);letter-spacing:.2em;margin-bottom:5px;}
 @keyframes goalPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}20%{transform:translate(-50%,-50%) scale(1)}82%{opacity:1}100%{opacity:0;transform:translate(-50%,-48%) scale(.97)}}
-@media(min-width:700px){body{max-width:560px;}}
+@media(min-width:700px){
+  .banner{border-radius:12px;margin:20px auto;max-width:820px;padding:28px 40px;}
+  .s-sec-wrap{max-width:860px;margin-left:auto;margin-right:auto;padding-left:20px;padding-right:20px;}
+  .subj-card{max-width:860px;margin-left:auto;margin-right:auto;}
+  .todo-card{max-width:860px;margin-left:auto;margin-right:auto;}
+  #s-cards,#dash-list,.dash-wrap,.room-pad{max-width:900px;margin-left:auto;margin-right:auto;}
+  .dash-wrap{padding:24px 20px 90px;}
+  .room-pad{padding:24px 20px 90px;}
+  .t-nav{max-width:900px;margin-left:auto;margin-right:auto;}
+}
 </style>
 </head>
 <body>
 
 <div id="loading-screen">
   <div class="ld-badge">STUDY SYSTEM</div>
-  <div class="ld-title">定期テスト完成度チェック<small>＆ 予想得点シミュレーション</small></div>
+  <div class="ld-title">定期テスト完成度チェック<small>＆ 得点シミュレーション</small></div>
   <div class="ld-dots"><span></span><span></span><span></span></div>
 </div>
 
@@ -391,7 +529,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
   <button class="gear-btn" id="gear-btn"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 14c-2.67 0-5.11-1.28-6.6-3.47C6.83 13.8 9.32 13 12 13s5.17.8 6.6 2.53C17.11 17.72 14.67 19 12 19z"/></svg>TEACHER</button>
   <div class="login-title-wrap">
     <div class="login-badge">STUDY SYSTEM</div>
-    <div class="login-title-main">定期テスト<br>完成度チェック<span>＆ 予想得点シミュレーション</span></div>
+    <div class="login-title-main">定期テスト<br>完成度チェック<span>＆ 得点シミュレーション</span></div>
   </div>
   <div class="login-card">
     <div class="login-field">
@@ -418,7 +556,9 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
     <button class="t-nav-btn" id="nav-class"><svg viewBox="0 0 24 24"><path d="M12 3L1 9l11 6 9-4.91V17h2V9M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/></svg>クラス登録</button>
     <button class="t-nav-btn" id="nav-stu"><svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>生徒登録</button>
     <button class="t-nav-btn" id="nav-range"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>テスト範囲登録</button>
-    <button class="t-nav-btn" id="nav-preset"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>学習設定</button>
+    <button class="t-nav-btn" id="nav-msg"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>メッセージ</button>
+    <button class="t-nav-btn" id="nav-results"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>テスト結果</button>
+    <button class="t-nav-btn" id="nav-preset"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>学習ステータス設定</button>
     <button class="t-nav-btn" id="nav-pw" style="margin-left:auto;">PW変更</button>
     <button class="t-nav-btn danger" id="nav-reset">リセット</button>
   </div>
@@ -452,7 +592,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
           <div style="flex:0 0 118px;"><label class="form-lbl">学年</label>
             <select id="cr-grade" class="fsel"><option value="">選択</option><option value="中1">中学1年</option><option value="中2">中学2年</option><option value="中3">中学3年</option></select>
           </div>
-          <div><label class="form-lbl">中学校名</label><input id="cr-school" class="finp" placeholder="例：第四中学校"></div>
+          <div><label class="form-lbl">中学校名</label><input id="cr-school" class="finp" placeholder="例：〇〇中学校"></div>
         </div>
         <button class="btn-pri" id="cr-add">クラスを追加</button>
       </div></div>
@@ -465,8 +605,8 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
       <div class="card"><div class="card-pad">
         <div style="font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:13px;">新しい生徒を追加</div>
         <div class="form-row">
-          <div><label class="form-lbl">生徒ID</label><input id="sr-id" class="finp" placeholder="例：909201" autocomplete="off"></div>
-          <div><label class="form-lbl">パスワード</label><input id="sr-pw" class="finp" placeholder="例：1234" autocomplete="off"></div>
+          <div><label class="form-lbl">生徒ID</label><input id="sr-id" class="finp" placeholder="例：912345" autocomplete="off"></div>
+          <div><label class="form-lbl">パスワード</label><input id="sr-pw" class="finp" placeholder="例：a1b2" autocomplete="off"></div>
         </div>
         <div class="form-row"><div><label class="form-lbl">クラス</label><select id="sr-group" class="fsel"></select></div></div>
         <button class="btn-pri" id="sr-add">生徒を追加</button>
@@ -499,7 +639,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
         <div id="rd-list" style="margin-top:10px;"></div>
         <div class="rng-total" id="rd-total"></div>
         <div class="add-form">
-          <div class="grow"><label class="form-lbl">範囲の名前</label><input id="rd-name" class="finp" placeholder="例：ワークp.10-25"></div>
+          <div class="grow"><label class="form-lbl">範囲の名前</label><input id="rd-name" class="finp" placeholder="例：ワークp.1-10"></div>
           <div class="w70"><label class="form-lbl">配点</label><input id="rd-pts" class="finp" type="number" min="1" max="100" placeholder="20"></div>
           <button class="btn-add" id="rd-add">追加</button>
         </div>
@@ -513,6 +653,38 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
       <div class="sec-note">生徒が学習状況を選ぶときの選択肢を編集できます。<br>%は完成度のベース値として得点計算に使われます。</div>
       <div id="preset-list"></div>
       <button class="btn-pri" id="preset-save" style="margin-top:6px;">変更を保存</button>
+    </div>
+  </div>
+
+  <!-- ROOM: results -->
+  <div id="room-results" style="display:none;">
+    <div class="room-pad">
+      <div class="sec-note">テスト終了後、各生徒の実際の得点を入力します。</div>
+      <div class="card">
+        <div class="card-pad" style="padding-bottom:10px;">
+          <label class="form-lbl">対象テスト</label>
+          <select id="res-test-sel" class="fsel"></select>
+        </div>
+      </div>
+      <div id="res-list"></div>
+
+    </div>
+  </div>
+
+  <!-- ROOM: message -->
+  <div id="room-msg" style="display:none;">
+    <div class="room-pad">
+      <div class="sec-note">生徒の画面「完成度チェック」の上に表示されるメッセージを登録します。空欄にすると非表示になります。</div>
+      <div class="card"><div class="card-pad">
+        <label class="form-lbl">メッセージ（全クラス共通）</label>
+        <textarea id="msg-text" style="width:100%;box-sizing:border-box;font-size:14px;font-family:'Noto Sans JP',sans-serif;color:var(--ink);border:1.5px solid var(--line);border-radius:10px;padding:12px 13px;outline:none;resize:vertical;min-height:100px;line-height:1.7;transition:.15s;" placeholder="例：テストまであと少し！最後まで頑張ろう！"></textarea>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+          <button class="btn-pri" id="msg-save" style="flex:1;">保存して生徒に表示</button>
+          <button class="btn-sec" id="msg-clear">削除</button>
+        </div>
+      </div></div>
+      <div style="padding:4px 4px 0;font-size:11.5px;color:var(--sub);">プレビュー</div>
+      <div id="msg-preview" style="display:none;margin-top:6px;"></div>
     </div>
   </div>
 
@@ -530,18 +702,19 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
   </div>
   <div class="banner">
   
-    <div class="sc-lbl">テスト範囲完成度からの予想得点</div>
+    <div class="sc-lbl">テスト範囲完成度からの得点シミュレーション</div>
     <div id="sc-main">
       <div class="sc-main"><span class="sc-num" id="sc-num">--</span><span class="sc-unit">点</span><span class="sc-max">/ 500点</span></div>
     </div>
     <div class="sc-pending" id="sc-pending" style="display:none;">
       <div class="dash">---</div>
-      <div class="note">すべての学習状況を選択すると予想得点が表示されます</div>
+      <div class="note">すべての学習状況を選択すると得点が表示されます</div>
     </div>
     <div class="sc-disc">あくまでシミュレーション得点です。実際にこの点数になるわけではありません。</div>
     <div class="bn-div"></div>
     <div class="hime-wrap" id="hime" style="display:none;"></div>
   </div>
+  <div id="s-msg-area" style="display:none;margin:14px 14px 0;"></div>
   <div class="s-sec-wrap">
     <div class="s-sec-title">完成度チェック</div>
     <div class="s-sec-sub">テスト範囲の内容を1つずつ仕上げていこう。各項目が今どのレベルまでできているかを記録しましょう。</div>
@@ -590,14 +763,21 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 
 <div id="reset-modal" class="modal-overlay" style="display:none;">
   <div class="modal-box">
-    <div class="modal-title" style="color:var(--red);">全データリセット</div>
-    <div style="font-size:13px;color:var(--ink);line-height:1.8;margin-bottom:14px;">クラス・生徒・テスト範囲・学習状況など<b style="color:var(--red);">すべてのデータが削除</b>されます。この操作は取り消せません。</div>
-    <label class="form-lbl">確認のため「リセット」と入力してください</label>
-    <input class="modal-pin" id="reset-input" type="text" placeholder="リセット" style="letter-spacing:.05em;font-family:'Noto Sans JP',sans-serif;font-size:14px;">
-    <div class="modal-err" id="reset-err"></div>
-    <div class="modal-actions">
-      <button class="btn-mc" id="reset-cancel">キャンセル</button>
-      <button class="btn-mo" id="reset-ok" style="background:var(--red);">リセット実行</button>
+    <div id="reset-step1">
+      <div class="modal-title" style="color:var(--red);">⚠ 全データリセット</div>
+      <p style="font-size:13px;color:var(--ink);line-height:1.8;margin-bottom:20px;">クラス・生徒・テスト範囲・学習状況など<br><b style="color:var(--red);">すべてのデータが完全に削除</b>されます。<br>この操作は取り消せません。</p>
+      <div class="modal-actions">
+        <button class="btn-mc" id="reset-cancel">キャンセル</button>
+        <button class="btn-mo" id="reset-next" style="background:var(--red);">リセットする</button>
+      </div>
+    </div>
+    <div id="reset-step2" style="display:none;">
+      <div class="modal-title" style="color:var(--red);">本当によろしいですか？</div>
+      <p style="font-size:13px;color:var(--ink);line-height:1.8;margin-bottom:20px;">もう一度確認します。<br>この操作は<b>絶対に取り消せません。</b></p>
+      <div class="modal-actions">
+        <button class="btn-mc" id="reset-back">戻る</button>
+        <button class="btn-mo" id="reset-ok" style="background:var(--red);">完全に削除する</button>
+      </div>
     </div>
   </div>
 </div>
@@ -644,6 +824,16 @@ async function boot(){
   }
   _dbReady=true;
   document.getElementById('loading-screen').style.display='none';
+  // 保存済みID/PW で自動ログイン
+  try{
+    const sid=localStorage.getItem('_savedId');
+    const spw=localStorage.getItem('_savedPw');
+    if(sid&&spw){
+      const stu=(getTD().students||[]).find(s=>s.id===sid&&s.password===spw);
+      if(stu){studentName=sid;showStudent();return;}
+      else{localStorage.removeItem('_savedId');localStorage.removeItem('_savedPw');}
+    }
+  }catch(e){}
   document.getElementById('login').style.display='';
 }
 
@@ -711,7 +901,6 @@ function subjStats(sd,subj){
   let max=0,total=0;
   mats.forEach(m=>{max+=m.points;total+=predScore(m.points,getGauge(sd,m.id));});
   const allSel=mats.length>0&&mats.every(m=>getGauge(sd,m.id)!==null);
-  if(getIWork(sd,subj)&&mats.length)total+=3;
   total=Math.min(total,max);
   return{max,total,mats,allSel};
 }
@@ -734,11 +923,13 @@ function doLogin(){
   const stu=(getTD().students||[]).find(s=>s.id===id);
   if(!stu||stu.password!==pw){err.textContent='IDまたはパスワードが違います';return;}
   err.textContent='';studentName=id;
+  try{localStorage.setItem('_savedId',id);localStorage.setItem('_savedPw',pw);}catch(e){}
   document.getElementById('login').style.display='none';
   showStudent();
 }
 function logout(){
   studentName=null;sOpenSubj=null;
+  try{localStorage.removeItem('_savedId');localStorage.removeItem('_savedPw');}catch(e){}
   document.getElementById('teacher').className='screen';
   document.getElementById('student').className='screen';
   document.getElementById('login').style.display='';
@@ -811,7 +1002,7 @@ function showStudent(){
   const g=(getTD().groups||[]).find(gr=>gr.id===sd.groupId);
   document.getElementById('s-hd-name').textContent=(g?gLabel(g)+' / ':'')+studentName+'さん';
   sOpenSubj=null;_confettiShown=false;
-  renderHime();renderSCards();recalcBanner();
+  renderHime();renderTeacherMsg();renderSCards();recalcBanner();
 }
 function renderHime(){
   const el=document.getElementById('hime');
@@ -824,14 +1015,11 @@ function renderHime(){
   const days=Math.round((testD-today)/864e5);
   if(days<0){el.style.display='none';return;}
   el.style.display='';
-  const urgent=days<=3;
-  const msg=days===0?'今日テスト！':urgent?'ラストスパート！':days<=7?'残り1週間を切った！':'';
   el.innerHTML=`<div class="hime">
     <div class="hime-rings"><span></span><span></span></div>
     <div class="hime-top">定期テストまで</div>
-    <div class="hime-body"><span class="hime-ato">あと</span><span class="hime-num${urgent?' urgent':''}" id="hime-days">${days}</span><span class="hime-unit">日</span></div>
+    <div class="hime-body"><span class="hime-ato">あと</span><span class="hime-num" id="hime-days">${days}</span><span class="hime-unit">日</span></div>
     <div class="hime-timer" id="hime-timer"></div>
-    ${msg?`<div class="hime-msg">${msg}</div>`:''}
   </div>`;
   function tick(){
     const now=new Date();
@@ -905,23 +1093,7 @@ function buildBody(subj,body){
       updateSubjHd(subj);recalcBanner();
     });
   });
-  const iw=getIWork(sd,subj);
-  const iwRow=document.createElement('div');iwRow.className='iwork-row';
-  iwRow.innerHTML=`<label class="iwork${iw?' on':''}"><input type="checkbox"${iw?' checked':''}><span class="iwork-sw"></span><span class="iwork-lbl">iワーク/iワークプラスで<br>さらに演習した</span><span class="iwork-pts">+3点</span></label>`;
-  body.appendChild(iwRow);
-  iwRow.querySelector('input').addEventListener('change',function(){
-    const on=this.checked;
-    const nsd=getSD(studentName);const tid=getTD().currentTestId;
-    if(!nsd.byTest)nsd.byTest={};
-    if(!nsd.byTest[tid])nsd.byTest[tid]={gauge:{},iwork:{},target:null,lastUpdated:null};
-    if(!nsd.byTest[tid].iwork)nsd.byTest[tid].iwork={};
-    nsd.byTest[tid].iwork[subj]=on;
-    nsd.byTest[tid].lastUpdated=new Date().toISOString();
-    nsd.lastUpdated=nsd.byTest[tid].lastUpdated;
-    saveSD(studentName,nsd);
-    this.closest('.iwork').classList.toggle('on',on);
-    updateSubjHd(subj);recalcBanner();
-  });
+
 }
 function updateSubjHd(subj){
   const sd=getSD(studentName);const st=subjStats(sd,subj);
@@ -995,7 +1167,7 @@ function setHd(title,backFn){
   }
 }
 function hideRooms(){
-  ['t-home','room-class','room-stu','room-range','room-range-detail','room-preset','room-sd'].forEach(id=>{
+  ['t-home','room-class','room-stu','room-range','room-range-detail','room-preset','room-results','room-msg','room-sd'].forEach(id=>{
     document.getElementById(id).style.display='none';
   });
 }
@@ -1139,7 +1311,6 @@ function addClass(){
   td.groups.push({id:Date.now(),grade,school,label:grade+' '+school,testDate:''});
   saveTD(td);
   document.getElementById('cr-school').value='';
-  document.getElementById('cr-date').value='';
   renderClsList();
 }
 
@@ -1236,11 +1407,17 @@ function renderRdList(){
   mats.forEach((m,i)=>{
     total+=m.points;
     const row=document.createElement('div');row.className='rng-row';
-    row.innerHTML=`<span class="rng-no">範囲${i+1}</span><span class="rng-name">${esc(m.name)}</span><span class="rng-pts">${m.points}点</span><button class="cls-del">×</button>`;
+    row.innerHTML=`<span class="rng-no">範囲${i+1}</span><span class="rng-name">${esc(m.name)}</span><span class="rng-pts-wrap"><input class="rng-pts-inp" type="number" min="1" max="200" value="${m.points}" data-id="${m.id}"><span class="rng-pts-u">点</span></span><button class="cls-del">×</button>`;
     row.querySelector('.cls-del').addEventListener('click',()=>{
       const td2=getTD();
       td2.tests[td2.currentTestId].mats=td2.tests[td2.currentTestId].mats.filter(x=>x.id!==m.id);
       saveTD(td2);renderRdList();
+    });
+    row.querySelector('.rng-pts-inp').addEventListener('change',function(){
+      const pts=Math.max(1,parseInt(this.value)||1);
+      this.value=pts;
+      const td2=getTD();const mat=td2.tests[td2.currentTestId].mats.find(x=>x.id===parseInt(this.dataset.id));
+      if(mat){mat.points=pts;saveTD(td2);renderRdList();}
     });
     el.appendChild(row);
   });
@@ -1269,15 +1446,40 @@ function renderPresets(){
 }
 function savePresetsNow(){
   const el=document.getElementById('preset-list');
-  const td=getTD();const cur=[...getPresets()].map(p=>({...p}));
+  const td=getTD();
+  const oldPresets=[...getPresets()].map(p=>({...p}));
+  const cur=oldPresets.map(p=>({...p}));
   el.querySelectorAll('.preset-row').forEach((row,i)=>{
     cur[i].label=row.querySelector('[data-f="label"]').value.trim();
     cur[i].v=Math.min(100,Math.max(1,parseInt(row.querySelector('[data-f="v"]').value)||1));
   });
   cur.sort((a,b)=>a.v-b.v);
+  oldPresets.sort((a,b)=>a.v-b.v);
+  // 旧→新の値マッピング（同じ順位のプリセットのv値が変わった場合に追随）
+  const vMap={};
+  oldPresets.forEach((op,i)=>{if(cur[i])vMap[op.v]=cur[i].v;});
+  // 全生徒の学習状況を再マッピング
+  const sts=getAllStudents();
+  sts.forEach(id=>{
+    const sd=getSD(id);let changed=false;
+    if(sd.byTest){
+      Object.keys(sd.byTest).forEach(tid=>{
+        const gauge=sd.byTest[tid].gauge;
+        if(gauge){
+          Object.keys(gauge).forEach(mid=>{
+            const oldV=gauge[mid];
+            if(oldV!==null&&vMap[oldV]!==undefined&&vMap[oldV]!==oldV){
+              gauge[mid]=vMap[oldV];changed=true;
+            }
+          });
+        }
+      });
+    }
+    if(changed)saveSD(id,sd);
+  });
   td.customPresets=cur;saveTD(td);
   renderPresets();
-  alert('保存しました');
+  showToast('変更を保存しました');
 }
 
 /* student detail */
@@ -1362,11 +1564,7 @@ function exportXlsx(){
 
 /* reset */
 async function executeReset(){
-  const v=document.getElementById('reset-input').value;
-  const err=document.getElementById('reset-err');
-  if(v!=='リセット'){err.textContent='「リセット」と入力してください';return;}
-  const btn=document.getElementById('reset-ok');
-  btn.textContent='削除中...';btn.disabled=true;
+  console.log('resetting...');
   const keys=lsKeys();
   if(_db&&_dbReady){
     await Promise.all(keys.map(k=>{
@@ -1407,7 +1605,19 @@ document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='
 document.getElementById('nav-class').addEventListener('click',()=>{enterRoom('room-class','クラス登録');renderClsList();});
 document.getElementById('nav-stu').addEventListener('click',()=>{enterRoom('room-stu','生徒登録');renderStuReg();});
 document.getElementById('nav-range').addEventListener('click',()=>{enterRoom('room-range','テスト範囲登録');renderRangeClsList();});
-document.getElementById('nav-preset').addEventListener('click',()=>{enterRoom('room-preset','学習状況の設定');renderPresets();});
+document.getElementById('nav-msg').addEventListener('click',()=>{enterRoom('room-msg','先生からのメッセージ');initMsgRoom();});
+document.getElementById('msg-text').addEventListener('input',renderMsgPreview);
+document.getElementById('msg-save').addEventListener('click',()=>{
+  const td2=getTD();td2.teacherMsg=document.getElementById('msg-text').value;saveTD(td2);
+  showToast('メッセージを保存しました');
+});
+document.getElementById('msg-clear').addEventListener('click',()=>{
+  document.getElementById('msg-text').value='';
+  const td2=getTD();td2.teacherMsg='';saveTD(td2);
+  renderMsgPreview();showToast('メッセージを削除しました');
+});
+document.getElementById('nav-results').addEventListener('click',()=>{enterRoom('room-results','テスト結果入力');initResultsRoom();});
+document.getElementById('nav-preset').addEventListener('click',()=>{enterRoom('room-preset','学習ステータス設定');renderPresets();});
 document.getElementById('cr-add').addEventListener('click',addClass);
 document.getElementById('sr-add').addEventListener('click',addStudent);
 document.getElementById('rd-add').addEventListener('click',addRange);
@@ -1451,13 +1661,25 @@ document.getElementById('pw-ok').addEventListener('click',()=>{
 
 /* reset */
 document.getElementById('nav-reset').addEventListener('click',()=>{
-  document.getElementById('reset-input').value='';
-  document.getElementById('reset-err').textContent='';
-  const b=document.getElementById('reset-ok');b.textContent='リセット実行';b.disabled=false;
+  document.getElementById('reset-step1').style.display='';
+  document.getElementById('reset-step2').style.display='none';
   document.getElementById('reset-modal').style.display='flex';
 });
-document.getElementById('reset-cancel').addEventListener('click',()=>{document.getElementById('reset-modal').style.display='none';});
-document.getElementById('reset-ok').addEventListener('click',executeReset);
+document.getElementById('reset-cancel').addEventListener('click',()=>{
+  document.getElementById('reset-modal').style.display='none';
+});
+document.getElementById('reset-next').addEventListener('click',()=>{
+  document.getElementById('reset-step1').style.display='none';
+  document.getElementById('reset-step2').style.display='';
+});
+document.getElementById('reset-back').addEventListener('click',()=>{
+  document.getElementById('reset-step1').style.display='';
+  document.getElementById('reset-step2').style.display='none';
+});
+document.getElementById('reset-ok').addEventListener('click',()=>{
+  document.getElementById('reset-modal').style.display='none';
+  executeReset();
+});
 
 /* todo */
 document.getElementById('todo-btn').addEventListener('click',()=>{
@@ -1469,6 +1691,14 @@ document.getElementById('todo-btn').addEventListener('click',()=>{
   if(!open)renderTodoList();
 });
 
+
+function showToast(msg){
+  let t=document.getElementById('app-toast');
+  if(!t){t=document.createElement('div');t.id='app-toast';document.body.appendChild(t);}
+  t.textContent=msg;t.className='toast-show';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.className='';},2400);
+}
 window.onerror=function(msg,src,line,col,err){console.error('APP ERROR:',msg,line+':'+col,err);return false;};
 boot();
 </script>
