@@ -9,6 +9,30 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script>
+function calcCompletion(){
+  const sd=getSD(studentName);const gid=sd.groupId;
+  const mats=getCurrentMats().filter(m=>gid?m.groupId===gid:true);
+  if(!mats.length)return null;
+  let totalPts=0,weightedPct=0;
+  mats.forEach(m=>{
+    const lv=getGauge(sd,m.id)||0;
+    weightedPct+=lv*m.points;
+    totalPts+=m.points;
+  });
+  return totalPts>0?Math.round(weightedPct/totalPts):0;
+}
+function renderCompletion(){
+  const wrap=document.getElementById('s-comp-wrap');
+  const bar=document.getElementById('s-comp-bar');
+  const pct=document.getElementById('s-comp-pct');
+  if(!wrap||!bar||!pct)return;
+  const v=calcCompletion();
+  if(v===null){wrap.style.display='none';return;}
+  wrap.style.display='';
+  bar.style.width=v+'%';
+  pct.textContent=v+'%';
+}
+
 
 
 /* ════ メッセージ ════ */
@@ -126,6 +150,11 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
 .t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
 .t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
+.comp-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.12em;margin-bottom:7px;text-align:center;}
+.comp-bar-row{display:flex;align-items:center;gap:10px;}
+.comp-bar-track{flex:1;height:8px;background:rgba(255,255,255,.2);overflow:hidden;}
+.comp-bar-fill{height:100%;background:#fff;transition:width .6s cubic-bezier(.34,1.1,.64,1);}
+.comp-pct{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:800;color:#fff;min-width:44px;text-align:right;font-variant-numeric:tabular-nums;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -187,6 +216,11 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
 .t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
 .t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
+.comp-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.12em;margin-bottom:7px;text-align:center;}
+.comp-bar-row{display:flex;align-items:center;gap:10px;}
+.comp-bar-track{flex:1;height:8px;background:rgba(255,255,255,.2);overflow:hidden;}
+.comp-bar-fill{height:100%;background:#fff;transition:width .6s cubic-bezier(.34,1.1,.64,1);}
+.comp-pct{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:800;color:#fff;min-width:44px;text-align:right;font-variant-numeric:tabular-nums;}
 ::-webkit-scrollbar{display:none;}
 .t-nav-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;font-size:12px;font-weight:600;color:var(--sub);background:var(--bg);border:1px solid var(--line);border-radius:20px;cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0;}
 .t-nav-btn:active{background:var(--blue-lt);color:var(--blue);}
@@ -225,6 +259,11 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
 .t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
 .t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
+.comp-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.12em;margin-bottom:7px;text-align:center;}
+.comp-bar-row{display:flex;align-items:center;gap:10px;}
+.comp-bar-track{flex:1;height:8px;background:rgba(255,255,255,.2);overflow:hidden;}
+.comp-bar-fill{height:100%;background:#fff;transition:width .6s cubic-bezier(.34,1.1,.64,1);}
+.comp-pct{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:800;color:#fff;min-width:44px;text-align:right;font-variant-numeric:tabular-nums;}
 ::-webkit-scrollbar{display:none;}
 .f-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:12.5px;font-weight:600;color:var(--sub);background:#fff;border:1px solid var(--line);border-radius:20px;cursor:pointer;transition:.15s;white-space:nowrap;flex-shrink:0;}
 .f-btn .cnt{font-size:10px;font-weight:700;background:var(--bg);color:var(--faint);padding:1px 7px;border-radius:9px;}
@@ -311,6 +350,11 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .t-msg-label{font-size:9.5px;font-weight:800;color:var(--blue);letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:5px;}
 .t-msg-label svg{width:12px;height:12px;fill:var(--blue);}
 .t-msg-text{font-size:14px;color:var(--ink);line-height:1.75;font-weight:500;white-space:pre-wrap;}
+.comp-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.12em;margin-bottom:7px;text-align:center;}
+.comp-bar-row{display:flex;align-items:center;gap:10px;}
+.comp-bar-track{flex:1;height:8px;background:rgba(255,255,255,.2);overflow:hidden;}
+.comp-bar-fill{height:100%;background:#fff;transition:width .6s cubic-bezier(.34,1.1,.64,1);}
+.comp-pct{font-family:'Roboto Mono',monospace;font-size:16px;font-weight:800;color:#fff;min-width:44px;text-align:right;font-variant-numeric:tabular-nums;}
 ::-webkit-scrollbar{display:none;}
 .subj-tab{padding:7px 15px;font-size:12.5px;font-weight:700;color:var(--sub);background:var(--bg);border:1px solid var(--line);border-radius:18px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.15s;}
 .subj-tab.active{background:var(--blue);border-color:var(--blue);color:#fff;}
@@ -431,7 +475,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 
 /* himekuri */
 .hime-wrap{display:flex;justify-content:center;}
-.hime{position:relative;background:#fff;border-radius:13px;padding:21px 38px 15px;box-shadow:0 6px 22px rgba(0,15,45,.28);text-align:center;min-width:165px;}
+.hime{position:relative;background:#fff;border-radius:13px;padding:21px 38px 16px;box-shadow:0 6px 22px rgba(0,15,45,.28);text-align:center;width:260px;}
 .hime-rings{position:absolute;top:-7px;left:0;right:0;display:flex;justify-content:center;gap:58px;}
 .hime-rings span{width:10px;height:14px;border:3px solid #94a3b8;border-radius:5px;background:var(--blue);display:block;}
 .hime-top{font-size:10.5px;font-weight:800;color:var(--sub);letter-spacing:.14em;margin-bottom:4px;padding-bottom:7px;border-bottom:1px dashed var(--line);}
@@ -440,12 +484,12 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 .hime-num{font-family:'Roboto Mono',monospace;font-size:60px;font-weight:800;color:var(--blue);line-height:1.05;font-variant-numeric:tabular-nums;}
 
 .hime-unit{font-size:18px;font-weight:800;color:var(--ink);}
-.hime-timer{display:flex;align-items:baseline;justify-content:center;gap:2px;margin-top:4px;font-family:'Roboto Mono',monospace;font-variant-numeric:tabular-nums;color:var(--blue);}
-.ht-unit{display:inline-flex;align-items:baseline;gap:0px;}
-.ht-n{font-size:13px;font-weight:700;line-height:1;}
-.ht-l{font-size:8px;font-weight:700;opacity:.7;}
-.ht-sep{font-size:11px;font-weight:700;opacity:.3;padding-bottom:1px;margin:0 1px;}
-.ht-cs{font-size:11px;font-weight:600;opacity:.5;}
+.hime-timer{display:block;text-align:center;margin-top:5px;font-family:'Roboto Mono',monospace;font-variant-numeric:tabular-nums;color:var(--sub);font-size:11px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;}
+.ht-unit{display:inline;}
+.ht-n{font-size:11px;font-weight:700;}
+.ht-l{font-size:9px;font-weight:600;opacity:.8;margin-right:2px;}
+.ht-sep{font-size:11px;opacity:.35;margin:0 2px;}
+.ht-cs{font-size:10px;opacity:.45;}
 
 
 /* sections */
@@ -702,7 +746,14 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
   </div>
   <div class="banner">
   
-    <div class="sc-lbl">テスト範囲完成度からの得点シミュレーション</div>
+    <div id="s-comp-wrap" style="display:none;margin-bottom:18px;">
+      <div class="comp-label">定期テスト勉強完成度</div>
+      <div class="comp-bar-row">
+        <div class="comp-bar-track"><div class="comp-bar-fill" id="s-comp-bar"></div></div>
+        <div class="comp-pct" id="s-comp-pct">0%</div>
+      </div>
+    </div>
+    <div class="sc-lbl">予想得点</div>
     <div id="sc-main">
       <div class="sc-main"><span class="sc-num" id="sc-num">--</span><span class="sc-unit">点</span><span class="sc-max">/ 500点</span></div>
     </div>
@@ -711,7 +762,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
       <div class="note">すべての学習状況を選択すると得点が表示されます</div>
     </div>
     <div class="sc-disc">あくまでシミュレーション得点です。実際にこの点数になるわけではありません。</div>
-    <div class="bn-div"></div>
+<div class="bn-div"></div>
     <div class="hime-wrap" id="hime" style="display:none;"></div>
   </div>
   <div id="s-msg-area" style="display:none;margin:14px 14px 0;"></div>
@@ -882,7 +933,7 @@ function getGauge(sd,mid){const tid=getTD().currentTestId;if(!sd.byTest||!sd.byT
 function getIWork(sd,subj){const tid=getTD().currentTestId;if(!sd.byTest||!sd.byTest[tid]||!sd.byTest[tid].iwork)return false;return!!sd.byTest[tid].iwork[subj];}
 function predScore(pts,lv){return lv?pts*lv/100:0;}
 function levelStyle(lv){
-  if(!lv)return{color:'#94a3b8',bg:'#fff',bd:'#d5dae2'};
+  if(!lv)return{color:'#374151',bg:'#f3f4f6',bd:'#d1d5db'};
   const ps=getPresets();
   return ps.find(p=>p.v===lv)||[...ps].reverse().find(p=>p.v<=lv)||ps[0];
 }
@@ -1002,7 +1053,7 @@ function showStudent(){
   const g=(getTD().groups||[]).find(gr=>gr.id===sd.groupId);
   document.getElementById('s-hd-name').textContent=(g?gLabel(g)+' / ':'')+studentName+'さん';
   sOpenSubj=null;_confettiShown=false;
-  renderHime();renderTeacherMsg();renderSCards();recalcBanner();
+  renderHime();renderTeacherMsg();renderSCards();recalcBanner();renderCompletion();
 }
 function renderHime(){
   const el=document.getElementById('hime');
@@ -1089,8 +1140,8 @@ function buildBody(subj,body){
       saveSD(studentName,nsd);
       document.getElementById('mp-'+m.id).textContent=Math.round(predScore(m.points,nlv))+'点';
       const ns=levelStyle(nlv);
-      this.style.backgroundColor=ns.bg;this.style.color=nlv?ns.color:'#94a3b8';this.style.borderColor=ns.bd;
-      updateSubjHd(subj);recalcBanner();
+      this.style.backgroundColor=ns.bg;this.style.color=nlv?ns.color:'#4b5563';this.style.borderColor=ns.bd;
+      updateSubjHd(subj);recalcBanner();renderCompletion();
     });
   });
 
@@ -1521,7 +1572,7 @@ function renderStudentDetail(id){
       const lv=getGauge(sd,m.id);
       const lvSt=levelStyle(lv);
       const opts='<option value=""'+(lv===null?' selected':'')+'>学習状況を選択</option>'+getPresets().map(p=>`<option value="${p.v}"${p.v===lv?' selected':''}>${p.symbol} ${p.label}</option>`).join('');
-      inner+=`<div class="sd-mat"><div class="sd-mat-info"><div class="sd-mat-name"><small>範囲${i+1}</small>${esc(m.name)}</div><select class="sd-mat-sel" data-mid="${m.id}" data-pts="${m.points}" style="background-color:${lvSt.bg};color:${lv?lvSt.color:'#94a3b8'};border-color:${lvSt.bd};">${opts}</select></div><div class="sd-mat-pts">配点${m.points}<b id="sdmp-${m.id}">${Math.round(predScore(m.points,lv))}点</b></div></div>`;
+      inner+=`<div class="sd-mat"><div class="sd-mat-info"><div class="sd-mat-name"><small>範囲${i+1}</small>${esc(m.name)}</div><select class="sd-mat-sel" data-mid="${m.id}" data-pts="${m.points}" style="background-color:${lvSt.bg};color:${lv?lvSt.color:'#374151'};border-color:${lvSt.bd};">${opts}</select></div><div class="sd-mat-pts">配点${m.points}<b id="sdmp-${m.id}">${Math.round(predScore(m.points,lv))}点</b></div></div>`;
     });
     card.innerHTML=inner;
     el.appendChild(card);
