@@ -580,8 +580,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
       <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
       <input id="login-id" type="text" placeholder="ID" autocomplete="off">
     </div>
-    <div class="login-field">
-      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>
+    <div class="login-field" style="display:none;">
       <input id="login-pw" type="password" placeholder="パスワード" autocomplete="off">
     </div>
     <button class="login-btn" id="btn-login">ログイン</button>
@@ -650,7 +649,7 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
         <div style="font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:13px;">新しい生徒を追加</div>
         <div class="form-row">
           <div><label class="form-lbl">生徒ID</label><input id="sr-id" class="finp" placeholder="例：912345" autocomplete="off"></div>
-          <div><label class="form-lbl">パスワード</label><input id="sr-pw" class="finp" placeholder="例：a1b2" autocomplete="off"></div>
+          <div style="display:none;"><input id="sr-pw" class="finp"></div>
         </div>
         <div class="form-row"><div><label class="form-lbl">クラス</label><select id="sr-group" class="fsel"></select></div></div>
         <button class="btn-pri" id="sr-add">生徒を追加</button>
@@ -846,17 +845,38 @@ input,select,textarea,button{font-family:'Noto Sans JP',sans-serif;}
 <script>
 /* ════ STORAGE ════ */
 const _store={};let _dbReady=false;
+const _pendingWrites={};
 function lsGet(k){return _store[k]||null;}
+function _fsWrite(k,v){
+  if(!_db)return;
+  const safe=k.replace(/[^a-zA-Z0-9_-]/g,'_');
+  _db.collection('appdata').doc(safe).set({v,_origKey:k}).catch(e=>console.warn('FS write:',e));
+}
 function lsSet(k,v){
   _store[k]=v;
   try{localStorage.setItem(k,v);}catch(e){}
-  if(_dbReady&&_db){
-    const safe=k.replace(/[^a-zA-Z0-9_-]/g,'_');
-    _db.collection('appdata').doc(safe).set({v}).catch(e=>console.warn('FS write:',e));
-  }
+  if(_dbReady&&_db){_fsWrite(k,v);}
+  else{_pendingWrites[k]=v;}
+}
+function _flushPendingWrites(){
+  if(!_db)return;
+  Object.keys(_pendingWrites).forEach(k=>{_fsWrite(k,_pendingWrites[k]);delete _pendingWrites[k];});
 }
 function lsKeys(){return Object.keys(_store);}
+/* ── タイムスタンプ比較ユーティリティ ── */
+function _getTS(jsonStr){
+  try{const o=JSON.parse(jsonStr);return o&&(o.lastUpdated||o._ts)||null;}catch(e){return null;}
+}
+function _newer(a,b){
+  // a, b はJSON文字列。より新しい方を返す（どちらも無い場合 b を返す）
+  const ta=_getTS(a);const tb=_getTS(b);
+  if(!ta&&!tb)return b;
+  if(!ta)return b;
+  if(!tb)return a;
+  return new Date(ta)>=new Date(tb)?a:b;
+}
 async function boot(){
+  // 1) まずlocalStorageを_storeに読み込む
   try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k)_store[k]=localStorage.getItem(k);}}catch(e){}
   if(!_db){
     try{
@@ -869,20 +889,31 @@ async function boot(){
   if(_db){
     try{
       const snap=await _db.collection('appdata').get();
-      snap.forEach(doc=>{_store[doc.id]=doc.data().v;});
-      console.log('Firestore: '+snap.size+'件');
+      snap.forEach(doc=>{
+        const d=doc.data();
+        const key=d._origKey||doc.id;
+        const fsVal=d.v;
+        const lsVal=_store[key]||null;
+        // タイムスタンプが新しい方を採用（tdはより多くの情報を持つ方）
+        const winner=_newer(lsVal,fsVal);
+        if(winner&&winner!==lsVal){
+          _store[key]=winner;
+          try{localStorage.setItem(key,winner);}catch(e){}
+        }
+      });
+      console.log('Firestore: '+snap.size+'件（マージ完了）');
     }catch(e){console.warn('FS read:',e);}
   }
   _dbReady=true;
+  _flushPendingWrites();
   document.getElementById('loading-screen').style.display='none';
   // 保存済みID/PW で自動ログイン
   try{
     const sid=localStorage.getItem('_savedId');
-    const spw=localStorage.getItem('_savedPw');
-    if(sid&&spw){
-      const stu=(getTD().students||[]).find(s=>s.id===sid&&s.password===spw);
+    if(sid){
+      const stu=(getTD().students||[]).find(s=>s.id===sid);
       if(stu){studentName=sid;showStudent();return;}
-      else{localStorage.removeItem('_savedId');localStorage.removeItem('_savedPw');}
+      else{localStorage.removeItem('_savedId');}
     }
   }catch(e){}
   document.getElementById('login').style.display='';
@@ -909,7 +940,7 @@ function defaultTD(){
   const tests={};TESTS.forEach(t=>tests[t.id]={name:t.name,mats:[]});
   return{pin:'1234',currentTestId:'g1-chukan',groups:[],tests,students:[]};
 }
-function getTD(){let td=null;try{td=JSON.parse(lsGet('td'));}catch(e){}if(!td){td=defaultTD();saveTD(td);}if(!td.tests)td.tests={};TESTS.forEach(t=>{if(!td.tests[t.id])td.tests[t.id]={name:t.name,mats:[]};});return td;}
+function getTD(){let td=null;try{td=JSON.parse(lsGet('td'));}catch(e){}if(!td){td=defaultTD();if(_dbReady)saveTD(td);}if(!td.tests)td.tests={};TESTS.forEach(t=>{if(!td.tests[t.id])td.tests[t.id]={name:t.name,mats:[]};});return td;}
 function saveTD(td){lsSet('td',JSON.stringify(td));}
 function getSD(id){let sd=null;try{sd=JSON.parse(lsGet('sd_'+id));}catch(e){}if(!sd)sd={byTest:{},groupId:null,lastUpdated:null};const stu=(getTD().students||[]).find(s=>s.id===id);if(stu)sd.groupId=stu.groupId;return sd;}
 function saveSD(id,sd){lsSet('sd_'+id,JSON.stringify(sd));}
@@ -969,18 +1000,17 @@ function totalStats(sd){
 let studentName=null;
 function doLogin(){
   const id=document.getElementById('login-id').value.trim();
-  const pw=document.getElementById('login-pw').value;
   const err=document.getElementById('login-err');
   const stu=(getTD().students||[]).find(s=>s.id===id);
-  if(!stu||stu.password!==pw){err.textContent='IDまたはパスワードが違います';return;}
+  if(!stu){err.textContent='IDが見つかりません';return;}
   err.textContent='';studentName=id;
-  try{localStorage.setItem('_savedId',id);localStorage.setItem('_savedPw',pw);}catch(e){}
+  try{localStorage.setItem('_savedId',id);}catch(e){}
   document.getElementById('login').style.display='none';
   showStudent();
 }
 function logout(){
   studentName=null;sOpenSubj=null;
-  try{localStorage.removeItem('_savedId');localStorage.removeItem('_savedPw');}catch(e){}
+  try{localStorage.removeItem('_savedId');}catch(e){}
   document.getElementById('teacher').className='screen';
   document.getElementById('student').className='screen';
   document.getElementById('login').style.display='';
@@ -1382,7 +1412,7 @@ function renderStuReg(){
     sec.innerHTML=`<div class="sr-sec-hd">${g?esc(gLabel(g)):'クラス未設定'}<span class="sr-sec-cnt">${members.length}名</span></div>`;
     members.forEach(stu=>{
       const row=document.createElement('div');row.className='sr-row';
-      row.innerHTML=`<div class="sr-id">${esc(stu.id)}</div><div class="sr-pw">PW：${esc(stu.password)}</div><button class="cls-del" data-id="${esc(stu.id)}">×</button>`;
+      row.innerHTML=`<div class="sr-id">${esc(stu.id)}</div><button class="cls-del" data-id="${esc(stu.id)}">×</button>`;
       row.querySelector('.cls-del').addEventListener('click',()=>{
         if(!confirm(stu.id+' を削除しますか？'))return;
         const td2=getTD();td2.students=(td2.students||[]).filter(s=>s.id!==stu.id);saveTD(td2);renderStuReg();
@@ -1397,16 +1427,16 @@ function addStudent(){
   const pw=document.getElementById('sr-pw').value.trim();
   const gid=document.getElementById('sr-group').value;
   const err=document.getElementById('sr-err');
-  if(!id||!pw){err.textContent='IDとパスワードを入力してください';return;}
+  if(!id){err.textContent='IDを入力してください';return;}
   if(!gid){err.textContent='クラスを選択してください';return;}
   const td=getTD();
   if((td.students||[]).some(s=>s.id===id)){err.textContent='このIDは既に登録されています';return;}
   err.textContent='';
   if(!td.students)td.students=[];
-  td.students.push({id,password:pw,name:id,groupId:parseInt(gid)});
+  td.students.push({id,password:'',name:id,groupId:parseInt(gid)});
   saveTD(td);
   document.getElementById('sr-id').value='';
-  document.getElementById('sr-pw').value='';
+  
   renderStuReg();
 }
 </script>
